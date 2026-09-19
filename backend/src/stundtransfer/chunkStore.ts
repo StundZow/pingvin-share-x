@@ -19,11 +19,29 @@ export function expectedChunkLength(
   return Math.max(0, Math.min(chunkSize, size - index * chunkSize));
 }
 
-export class ChunkStore {
-  // "<depositId>/<fileId>" -> received chunk indexes (loaded once from the log)
-  private received = new Map<string, Promise<Set<number>>>();
+type FileState = {
+  // Chunks written (durable or about to be flushed)
+  received: Set<number>;
+  // Chunks written but not yet flushed to disk and logged
+  unflushed: Set<number>;
+  timer?: ReturnType<typeof setTimeout>;
+  flushing?: Promise<void>;
+};
 
-  constructor(private readonly root: string) {}
+/**
+ * Durability: a chunk is logged as received only after the data is flushed
+ * to disk (fdatasync). Flushing after every chunk makes hard disks stall, so
+ * flushes are grouped: every `flushDelayMs`, and always before a file is
+ * reported complete. After a crash, unlogged chunks are simply sent again.
+ */
+export class ChunkStore {
+  // "<depositId>/<fileId>" -> state (loaded once from the log)
+  private files = new Map<string, Promise<FileState>>();
+
+  constructor(
+    private readonly root: string,
+    private readonly flushDelayMs = 2000,
+  ) {}
 
   depositDir(depositId: string) {
     return path.join(this.root, depositId);
@@ -41,15 +59,18 @@ export class ChunkStore {
     await fs.mkdir(this.depositDir(depositId), { recursive: true });
   }
 
-  receivedChunks(depositId: string, fileId: string): Promise<Set<number>> {
+  private state(depositId: string, fileId: string): Promise<FileState> {
     const key = `${depositId}/${fileId}`;
-    let received = this.received.get(key);
-    if (!received) {
-      received = this.loadLog(depositId, fileId);
-      this.received.set(key, received);
-      received.catch(() => this.received.delete(key));
+    let state = this.files.get(key);
+    if (!state) {
+      state = this.loadLog(depositId, fileId).then((received) => ({
+        received,
+        unflushed: new Set<number>(),
+      }));
+      this.files.set(key, state);
+      state.catch(() => this.files.delete(key));
     }
-    return received;
+    return state;
   }
 
   private async loadLog(depositId: string, fileId: string) {
@@ -67,9 +88,14 @@ export class ChunkStore {
     }
   }
 
+  async receivedChunks(depositId: string, fileId: string) {
+    return (await this.state(depositId, fileId)).received;
+  }
+
   /**
-   * Writes `data` at `position` and records chunk `index` once the data is on
-   * disk. Writing the same chunk twice (network retry) is harmless.
+   * Writes `data` at `position`. Writing the same chunk twice (network retry)
+   * is harmless. When the last missing chunk arrives, everything is flushed
+   * before returning, so a complete file is always on disk.
    */
   async writeChunk(
     depositId: string,
@@ -77,6 +103,7 @@ export class ChunkStore {
     index: number,
     position: number,
     data: Buffer,
+    totalChunks: number,
   ): Promise<Set<number>> {
     // O_CREAT without O_TRUNC: parallel chunks never erase each other
     const handle = await fs.open(
@@ -95,22 +122,64 @@ export class ChunkStore {
         );
         written += bytesWritten;
       }
-      await handle.datasync();
     } finally {
       await handle.close();
     }
 
-    const received = await this.receivedChunks(depositId, fileId);
-    if (!received.has(index)) {
-      await fs.appendFile(this.logPath(depositId, fileId), `${index}\n`);
-      received.add(index);
+    const state = await this.state(depositId, fileId);
+    if (!state.received.has(index)) {
+      state.received.add(index);
+      state.unflushed.add(index);
     }
-    return received;
+
+    if (state.received.size >= totalChunks) {
+      await this.flush(depositId, fileId);
+    } else if (!state.timer) {
+      state.timer = setTimeout(() => {
+        state.timer = undefined;
+        this.flush(depositId, fileId).catch(() => undefined);
+      }, this.flushDelayMs);
+    }
+    return state.received;
+  }
+
+  /** Flushes written chunks to disk, then logs them as received. */
+  async flush(depositId: string, fileId: string) {
+    const state = await this.state(depositId, fileId);
+    // One flush at a time per file
+    while (state.flushing) await state.flushing.catch(() => undefined);
+    if (state.unflushed.size === 0) return;
+
+    const indexes = [...state.unflushed];
+    state.unflushed.clear();
+    state.flushing = (async () => {
+      try {
+        const handle = await fs.open(this.dataPath(depositId, fileId), "r+");
+        try {
+          await handle.datasync();
+        } finally {
+          await handle.close();
+        }
+        await fs.appendFile(
+          this.logPath(depositId, fileId),
+          indexes.map((i) => `${i}\n`).join(""),
+        );
+      } catch (e) {
+        // Not durable: forget these chunks so they are sent again
+        indexes.forEach((i) => state.received.delete(i));
+        throw e;
+      } finally {
+        state.flushing = undefined;
+      }
+    })();
+    return state.flushing;
   }
 
   forgetDeposit(depositId: string) {
-    for (const key of this.received.keys()) {
-      if (key.startsWith(`${depositId}/`)) this.received.delete(key);
+    for (const [key, state] of this.files) {
+      if (!key.startsWith(`${depositId}/`)) continue;
+      state.then((s) => clearTimeout(s.timer)).catch(() => undefined);
+      this.files.delete(key);
     }
   }
 

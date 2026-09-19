@@ -480,6 +480,7 @@ export class DepositService implements OnModuleInit {
         index,
         index * deposit.chunkSize,
         data,
+        total,
       );
     } catch (e) {
       if (e?.code === "ENOSPC")
