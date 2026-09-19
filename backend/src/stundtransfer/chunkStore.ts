@@ -19,6 +19,8 @@ export function expectedChunkLength(
   return Math.max(0, Math.min(chunkSize, size - index * chunkSize));
 }
 
+const WRITE_BLOCK_BYTES = 8 * 1024 * 1024;
+
 /** The chunk received does not have the expected length. */
 export class ChunkLengthError extends Error {
   constructor() {
@@ -120,29 +122,58 @@ export class ChunkStore {
       fsConstants.O_WRONLY | fsConstants.O_CREAT,
       0o644,
     );
-    let written = 0;
-    const write = async (piece: Buffer) => {
-      if (written + piece.length > expectedLength) throw new ChunkLengthError();
+    const writeAt = async (block: Buffer, at: number) => {
       let offset = 0;
-      while (offset < piece.length) {
+      while (offset < block.length) {
         const { bytesWritten } = await handle.write(
-          piece,
+          block,
           offset,
-          piece.length - offset,
-          position + written,
+          block.length - offset,
+          at + offset,
         );
         offset += bytesWritten;
-        written += bytesWritten;
       }
     };
+
+    let received = 0;
+    // Streamed data is grouped in large blocks (hard disks hate small writes),
+    // and the next block is received while the previous one is written.
+    let pending: Buffer[] = [];
+    let pendingBytes = 0;
+    let dispatched = 0;
+    let writing: Promise<void> = Promise.resolve();
+    const dispatch = async () => {
+      const block = Buffer.concat(pending, pendingBytes);
+      const at = position + dispatched;
+      dispatched += pendingBytes;
+      pending = [];
+      pendingBytes = 0;
+      await writing;
+      writing = writeAt(block, at);
+    };
+
     try {
-      if (Buffer.isBuffer(data)) await write(data);
-      else for await (const piece of data) await write(piece);
+      if (Buffer.isBuffer(data)) {
+        received = data.length;
+        if (received > expectedLength) throw new ChunkLengthError();
+        await writeAt(data, position);
+      } else {
+        for await (const piece of data) {
+          received += piece.length;
+          if (received > expectedLength) throw new ChunkLengthError();
+          pending.push(piece);
+          pendingBytes += piece.length;
+          if (pendingBytes >= WRITE_BLOCK_BYTES) await dispatch();
+        }
+        if (pendingBytes > 0) await dispatch();
+        await writing;
+      }
     } finally {
+      await writing.catch(() => undefined);
       await handle.close();
     }
     // Incomplete chunk (connection cut): not recorded, it will be sent again
-    if (written !== expectedLength) throw new ChunkLengthError();
+    if (received !== expectedLength) throw new ChunkLengthError();
 
     const state = await this.state(depositId, fileId);
     if (!state.received.has(index)) {

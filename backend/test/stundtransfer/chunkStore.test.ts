@@ -106,6 +106,16 @@ describe("ChunkStore", () => {
     assert.equal((await new ChunkStore(root).receivedChunks("dep", "file")).size, 3);
   });
 
+  it("groups a big streamed chunk arriving in small pieces into large writes", async () => {
+    const store = new ChunkStore(root, 60000);
+    await store.prepareDeposit("dep");
+    const data = randomBytes(20_000_000);
+    const pieces: Buffer[] = [];
+    for (let o = 0; o < data.length; o += 65536) pieces.push(data.subarray(o, o + 65536));
+    await store.writeChunk("dep", "file", 0, 0, Readable.from(pieces), 1, data.length);
+    assert.deepEqual(await fs.readFile(store.dataPath("dep", "file")), data);
+  });
+
   it("rejects a streamed chunk that is too long or cut short, without recording it", async () => {
     const store = new ChunkStore(root, 60000);
     await store.prepareDeposit("dep");
