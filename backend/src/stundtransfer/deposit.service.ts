@@ -18,7 +18,12 @@ import { validate as isValidUUID } from "uuid";
 import { ConfigService } from "src/config/config.service";
 import { PrismaService } from "src/prisma/prisma.service";
 import { ReverseShareService } from "src/reverseShare/reverseShare.service";
-import { ChunkStore, expectedChunkLength, totalChunks } from "./chunkStore";
+import {
+  ChunkLengthError,
+  ChunkStore,
+  expectedChunkLength,
+  totalChunks,
+} from "./chunkStore";
 import { AddDepositFilesDTO, CreateDepositDTO } from "./dto/deposit.dto";
 import {
   depositFolderName,
@@ -29,6 +34,7 @@ import {
 import { moveIntoFolder } from "./safeMove";
 import {
   STUND_ABANDON_AFTER_HOURS,
+  STUND_CHUNK_BYTES,
   STUND_GUEST_ACCESS,
   STUND_MIN_FREE_BYTES,
   STUND_PARALLEL_UPLOADS,
@@ -155,8 +161,8 @@ export class DepositService implements OnModuleInit {
     }
   }
 
-  private chunkSize(): number {
-    return this.config.get("share.chunkSize");
+  private chunkSize(requested?: number): number {
+    return requested || STUND_CHUNK_BYTES || this.config.get("share.chunkSize");
   }
 
   private assertReady() {
@@ -319,7 +325,7 @@ export class DepositService implements OnModuleInit {
         secretHash: sha256(secret),
         totalSize: String(dto.totalSize),
         fileCount: dto.fileCount,
-        chunkSize: this.chunkSize(),
+        chunkSize: this.chunkSize(dto.chunkSize),
         reverseShareId: reverseShare.id,
         reverseShareOwnerId: reverseShare.creatorId,
       },
@@ -443,7 +449,9 @@ export class DepositService implements OnModuleInit {
     fileId: string,
     index: number,
     secret: string,
-    data: Buffer,
+    // A buffer, or the request stream (written to disk as it arrives)
+    data: Buffer | AsyncIterable<Buffer>,
+    declaredLength?: number,
   ) {
     this.assertReady();
     const deposit = await this.authorize(depositId, secret);
@@ -464,7 +472,7 @@ export class DepositService implements OnModuleInit {
       !Number.isInteger(index) ||
       index < 0 ||
       index >= total ||
-      data.length !== expectedLength
+      (Buffer.isBuffer(data) ? data.length : declaredLength) !== expectedLength
     )
       throw stundError(HttpStatus.BAD_REQUEST, "stund_bad_chunk", "Invalid chunk", {
         expectedLength,
@@ -481,8 +489,19 @@ export class DepositService implements OnModuleInit {
         index * deposit.chunkSize,
         data,
         total,
+        expectedLength,
       );
     } catch (e) {
+      // Wrong length or connection cut during the chunk: it will be sent again
+      if (
+        e instanceof ChunkLengthError ||
+        e?.code === "ECONNRESET" ||
+        e?.code === "ERR_STREAM_PREMATURE_CLOSE" ||
+        e?.message === "aborted"
+      )
+        throw stundError(HttpStatus.BAD_REQUEST, "stund_bad_chunk", "Incomplete chunk", {
+          expectedLength,
+        });
       if (e?.code === "ENOSPC")
         throw stundError(
           HttpStatus.INSUFFICIENT_STORAGE,

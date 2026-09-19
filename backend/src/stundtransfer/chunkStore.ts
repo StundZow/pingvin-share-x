@@ -19,6 +19,13 @@ export function expectedChunkLength(
   return Math.max(0, Math.min(chunkSize, size - index * chunkSize));
 }
 
+/** The chunk received does not have the expected length. */
+export class ChunkLengthError extends Error {
+  constructor() {
+    super("Chunk length does not match");
+  }
+}
+
 type FileState = {
   // Chunks written (durable or about to be flushed)
   received: Set<number>;
@@ -102,8 +109,10 @@ export class ChunkStore {
     fileId: string,
     index: number,
     position: number,
-    data: Buffer,
+    // A buffer, or a stream written to disk as it arrives (low memory use)
+    data: Buffer | AsyncIterable<Buffer>,
     totalChunks: number,
+    expectedLength: number = Buffer.isBuffer(data) ? data.length : 0,
   ): Promise<Set<number>> {
     // O_CREAT without O_TRUNC: parallel chunks never erase each other
     const handle = await fs.open(
@@ -111,20 +120,29 @@ export class ChunkStore {
       fsConstants.O_WRONLY | fsConstants.O_CREAT,
       0o644,
     );
-    try {
-      let written = 0;
-      while (written < data.length) {
+    let written = 0;
+    const write = async (piece: Buffer) => {
+      if (written + piece.length > expectedLength) throw new ChunkLengthError();
+      let offset = 0;
+      while (offset < piece.length) {
         const { bytesWritten } = await handle.write(
-          data,
-          written,
-          data.length - written,
+          piece,
+          offset,
+          piece.length - offset,
           position + written,
         );
+        offset += bytesWritten;
         written += bytesWritten;
       }
+    };
+    try {
+      if (Buffer.isBuffer(data)) await write(data);
+      else for await (const piece of data) await write(piece);
     } finally {
       await handle.close();
     }
+    // Incomplete chunk (connection cut): not recorded, it will be sent again
+    if (written !== expectedLength) throw new ChunkLengthError();
 
     const state = await this.state(depositId, fileId);
     if (!state.received.has(index)) {

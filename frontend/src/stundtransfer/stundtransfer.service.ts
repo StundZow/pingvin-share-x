@@ -114,7 +114,8 @@ const uploadChunk = async (
       {
         headers: {
           [SECRET_HEADER]: session.secret,
-          "Content-Type": "application/octet-stream",
+          // Streamed to disk by the server (no big buffers in the NAS memory)
+          "Content-Type": "application/x-stundtransfer-chunk",
         },
         signal: options.signal,
         onUploadProgress: options.onUploadProgress,

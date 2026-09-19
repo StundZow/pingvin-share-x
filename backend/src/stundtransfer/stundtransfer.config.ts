@@ -50,6 +50,15 @@ export const STUND_ABANDON_AFTER_HOURS = intFromEnv(
 export const STUND_GUEST_ACCESS =
   process.env.STUNDTRANSFER_GUEST_ACCESS === "true";
 
+/**
+ * Size of the chunks sent by browsers, in MB. 0 = use Pingvin's share.chunkSize.
+ * Chunks are streamed to disk, so large chunks do not use more memory.
+ */
+export const STUND_CHUNK_BYTES =
+  intFromEnv("STUNDTRANSFER_CHUNK_MB", 0, 1, 256) * 1_000_000;
+export const STUND_MIN_CHUNK_BYTES = 1_000_000;
+export const STUND_MAX_CHUNK_BYTES = 256_000_000;
+
 export const STUND_MAX_FILES = 20_000;
 export const STUND_MAX_FILES_PER_BATCH = 250;
 

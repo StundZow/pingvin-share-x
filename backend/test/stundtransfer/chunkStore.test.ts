@@ -6,7 +6,13 @@ import * as fs from "fs/promises";
 import * as os from "os";
 import * as path from "path";
 import { afterEach, beforeEach, describe, it } from "node:test";
-import { ChunkStore, expectedChunkLength, totalChunks } from "../../src/stundtransfer/chunkStore";
+import { Readable } from "stream";
+import {
+  ChunkLengthError,
+  ChunkStore,
+  expectedChunkLength,
+  totalChunks,
+} from "../../src/stundtransfer/chunkStore";
 
 const CHUNK = 1000;
 let root: string;
@@ -86,6 +92,37 @@ describe("ChunkStore", () => {
     assert.equal((await fs.stat(store.dataPath("dep", "file"))).size, 0);
     const restarted = new ChunkStore(root, 60000);
     assert.deepEqual([...(await restarted.receivedChunks("dep", "file"))], [0]);
+  });
+
+  it("writes a streamed chunk as it arrives", async () => {
+    const store = new ChunkStore(root, 60000);
+    await store.prepareDeposit("dep");
+    const data = randomBytes(2500);
+    const pieces = [data.subarray(0, 700), data.subarray(700, 1000)];
+    await store.writeChunk("dep", "file", 0, 0, Readable.from(pieces), 3, 1000);
+    await store.writeChunk("dep", "file", 2, 2000, Readable.from([data.subarray(2000)]), 3, 500);
+    await store.writeChunk("dep", "file", 1, 1000, Readable.from([data.subarray(1000, 2000)]), 3, 1000);
+    assert.deepEqual(await fs.readFile(store.dataPath("dep", "file")), data);
+    assert.equal((await new ChunkStore(root).receivedChunks("dep", "file")).size, 3);
+  });
+
+  it("rejects a streamed chunk that is too long or cut short, without recording it", async () => {
+    const store = new ChunkStore(root, 60000);
+    await store.prepareDeposit("dep");
+    await assert.rejects(
+      store.writeChunk("dep", "file", 0, 0, Readable.from([randomBytes(1200)]), 3, 1000),
+      ChunkLengthError,
+    );
+    await assert.rejects(
+      store.writeChunk("dep", "file", 0, 0, Readable.from([randomBytes(400)]), 3, 1000),
+      ChunkLengthError,
+    );
+    async function* cutConnection() {
+      yield randomBytes(300);
+      throw Object.assign(new Error("aborted"), { code: "ECONNRESET" });
+    }
+    await assert.rejects(store.writeChunk("dep", "file", 1, 1000, cutConnection(), 3, 1000));
+    assert.equal((await store.receivedChunks("dep", "file")).size, 0);
   });
 
   it("removing a deposit cancels its pending flush", async () => {

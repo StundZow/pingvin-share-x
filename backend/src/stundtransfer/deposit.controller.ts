@@ -26,6 +26,8 @@ import { DepositService } from "./deposit.service";
 import { AddDepositFilesDTO, CreateDepositDTO } from "./dto/deposit.dto";
 
 const SECRET_HEADER = "x-deposit-secret";
+// Chunks sent with this type are streamed to disk instead of being buffered in memory
+const STREAM_CHUNK_TYPE = "application/x-stundtransfer-chunk";
 
 /** Signed-in users only (JwtGuard alone lets anonymous users through when anonymous shares are allowed). */
 @Injectable()
@@ -85,7 +87,16 @@ export class DepositController {
     @Headers(SECRET_HEADER) secret: string,
     @Req() request: Request,
   ) {
-    // Parsed by the raw body parser registered in main.ts (application/octet-stream)
+    if (request.headers["content-type"] === STREAM_CHUNK_TYPE)
+      return this.depositService.writeChunk(
+        id,
+        fileId,
+        index,
+        secret,
+        request,
+        parseInt(request.headers["content-length"] ?? "", 10),
+      );
+    // application/octet-stream: already parsed by the raw body parser of main.ts
     const data = Buffer.isBuffer(request.body) ? request.body : Buffer.alloc(0);
     return this.depositService.writeChunk(id, fileId, index, secret, data);
   }

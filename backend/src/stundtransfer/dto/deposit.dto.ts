@@ -13,6 +13,8 @@ import {
   ValidateNested,
 } from "class-validator";
 import {
+  STUND_MAX_CHUNK_BYTES,
+  STUND_MIN_CHUNK_BYTES,
   STUND_MAX_FILES,
   STUND_MAX_FILES_PER_BATCH,
 } from "../stundtransfer.config";
@@ -39,6 +41,13 @@ export class CreateDepositDTO {
   @Min(0)
   @Max(Number.MAX_SAFE_INTEGER)
   totalSize: number;
+
+  // Optional chunk size (used to measure the best setting); server default otherwise
+  @IsOptional()
+  @IsInt()
+  @Min(STUND_MIN_CHUNK_BYTES)
+  @Max(STUND_MAX_CHUNK_BYTES)
+  chunkSize?: number;
 }
 
 export class DepositFileDTO {

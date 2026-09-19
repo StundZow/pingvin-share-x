@@ -26,10 +26,12 @@ const exists = (p) => access(p).then(() => true, () => false);
 let step = 0;
 const ok = (label) => console.log(`  ✔ ${++step}. ${label}`);
 
-async function api(method, url, { body, secret, raw } = {}) {
+const STREAM_TYPE = "application/x-stundtransfer-chunk";
+
+async function api(method, url, { body, secret, raw, type = STREAM_TYPE } = {}) {
   const headers = {};
   if (secret) headers["x-deposit-secret"] = secret;
-  if (raw !== undefined) headers["content-type"] = "application/octet-stream";
+  if (raw !== undefined) headers["content-type"] = type;
   else if (body !== undefined) headers["content-type"] = "application/json";
   const response = await fetch(BASE + url, {
     method,
@@ -50,7 +52,7 @@ function file(filePath, size) {
   return { path: filePath, data: randomBytes(size), lastModified: MTIME };
 }
 
-async function startDeposit(uploaderName, videoName, files) {
+async function startDeposit(uploaderName, videoName, files, requestedChunkSize) {
   const created = await api("POST", "/stundtransfer/deposits", {
     body: {
       token: TOKEN,
@@ -58,6 +60,7 @@ async function startDeposit(uploaderName, videoName, files) {
       videoName,
       fileCount: files.length,
       totalSize: files.reduce((s, f) => s + f.data.length, 0),
+      chunkSize: requestedChunkSize,
     },
   });
   assert.equal(created.status, 201, JSON.stringify(created.json));
@@ -86,7 +89,7 @@ function chunkJobs(deposit, skip = () => false) {
   return jobs.sort(() => Math.random() - 0.5);
 }
 
-async function uploadJobs(deposit, jobs, parallel = 4) {
+async function uploadJobs(deposit, jobs, parallel = 4, type = STREAM_TYPE) {
   const queue = [...jobs];
   await Promise.all(
     Array.from({ length: parallel }, async () => {
@@ -96,7 +99,7 @@ async function uploadJobs(deposit, jobs, parallel = 4) {
         const r = await api(
           "PUT",
           `/stundtransfer/deposits/${deposit.depositId}/files/${f.id}/chunks/${index}`,
-          { secret: deposit.secret, raw: data },
+          { secret: deposit.secret, raw: data, type },
         );
         assert.equal(r.status, 200, `chunk ${f.path}#${index}: ${JSON.stringify(r.json)}`);
       }
@@ -266,7 +269,8 @@ ok("nothing written outside the transfer folder, staging cleaned (no duplicate k
 // --- Deposit B: same person/video with other casing, same file name
 const filesB = [file("Rushes/Card A/A001.MP4", 1_200_000)];
 const B = await startDeposit("litsu", "BEAMNG", filesB);
-await uploadJobs(B, chunkJobs(B));
+// Older browsers send buffered chunks: still accepted
+await uploadJobs(B, chunkJobs(B), 4, "application/octet-stream");
 r = await api("POST", `/stundtransfer/deposits/${B.depositId}/complete`, { secret: B.secret });
 assert.equal(r.status, 202);
 const renamed = path.join(folderA, "Rushes", "Card A", "A001 (2).MP4");
@@ -278,10 +282,12 @@ assert.equal(
 );
 assert.deepEqual(await readdir(TRANSFER), ["Litsu - Beamng"]);
 ok('2nd deposit "litsu"/"BEAMNG" reuses the folder, nothing overwritten ("A001 (2).MP4")');
+ok("chunk size chosen per deposit; buffered (old) and streamed (new) chunks both accepted");
 
 // --- Deposit C: the uploader cancels
 const filesC = [file("annule.mov", 3_000_000)];
-const C = await startDeposit("Litsu", "Annulé", filesC);
+const C = await startDeposit("Litsu", "Annulé", filesC, 2_000_000);
+assert.equal(C.chunkSize, 2_000_000);
 await uploadJobs(C, chunkJobs(C, (f, index) => index > 0));
 assert.equal(await exists(path.join(STAGING, C.depositId)), true);
 r = await api("DELETE", `/stundtransfer/deposits/${C.depositId}`, { secret: "wrong-secret" });
