@@ -14,6 +14,7 @@ import {
 import { useClipboard } from "@mantine/hooks";
 import { useModals } from "@mantine/modals";
 import moment from "moment";
+import Link from "next/link"; // StundTransfer
 import { useEffect, useState } from "react";
 import { TbInfoCircle, TbLink, TbPlus, TbTrash } from "react-icons/tb";
 import { FormattedMessage } from "react-intl";
@@ -71,6 +72,10 @@ const MyShares = () => {
               <TbInfoCircle />
             </ActionIcon>
           </HoverTip>
+          {/* StundTransfer: deposits history */}
+          <Button component={Link} href="/account/deposits" variant="light" size="xs" ml="md">
+            <FormattedMessage id="stundtransfer.admin.button" />
+          </Button>
         </Group>
         <Button
           onClick={() =>

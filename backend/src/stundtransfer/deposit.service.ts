@@ -29,6 +29,7 @@ import {
 import { moveIntoFolder } from "./safeMove";
 import {
   STUND_ABANDON_AFTER_HOURS,
+  STUND_GUEST_ACCESS,
   STUND_MIN_FREE_BYTES,
   STUND_PARALLEL_UPLOADS,
   STUND_STAGING_DIR,
@@ -252,6 +253,29 @@ export class DepositService implements OnModuleInit {
       chunkSize: this.chunkSize(),
       parallelUploads: STUND_PARALLEL_UPLOADS,
     };
+  }
+
+  /** Deposit link used by the "Continuer en invité" button. */
+  async getGuestLink() {
+    const link =
+      isStundTransferEnabled() && STUND_GUEST_ACCESS
+        ? await this.prisma.reverseShare.findFirst({
+            where: {
+              shareExpiration: { gt: new Date() },
+              remainingUses: { gt: 0 },
+              creator: { isAdmin: true },
+            },
+            orderBy: { createdAt: "desc" },
+            select: { token: true },
+          })
+        : null;
+    if (!link)
+      throw stundError(
+        HttpStatus.NOT_FOUND,
+        "stund_no_guest_link",
+        "No open deposit link",
+      );
+    return { token: link.token };
   }
 
   async createDeposit(dto: CreateDepositDTO) {

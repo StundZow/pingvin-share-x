@@ -6,6 +6,8 @@ import Upload from ".";
 import showErrorModal from "../../components/share/showErrorModal";
 import shareService from "../../services/share.service";
 import useTranslate from "../../hooks/useTranslate.hook";
+// StundTransfer: deposit links show the deposit page
+import withDepositMode from "../../stundtransfer/withDepositMode";
 
 export function getServerSideProps(context: GetServerSidePropsContext) {
   return {
@@ -51,4 +53,4 @@ const Share = ({ reverseShareToken }: { reverseShareToken: string }) => {
   );
 };
 
-export default Share;
+export default withDepositMode(Share); // StundTransfer

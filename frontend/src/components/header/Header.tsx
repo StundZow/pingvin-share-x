@@ -23,6 +23,8 @@ import authService from "../../services/auth.service";
 import Logo from "../Logo";
 import ActionAvatar from "./ActionAvatar";
 import NavbarShareMenu from "./NavbarShareMenu";
+// StundTransfer: visitors only get a small sign-in icon
+import GuestSignInButton from "../../stundtransfer/GuestSignInButton";
 
 const HEADER_HEIGHT = 60;
 
@@ -193,6 +195,8 @@ const Header = () => {
       label: t("navbar.signup"),
     });
 
+  unauthenticatedLinks = []; // StundTransfer: replaced by GuestSignInButton
+
   const mobileRootLinks: NavLink[] = user
     ? [
         {
@@ -216,6 +220,10 @@ const Header = () => {
     {
       link: "/account/reverseShares",
       label: t("navbar.links.reverse"),
+    },
+    {
+      link: "/account/deposits", // StundTransfer
+      label: t("stundtransfer.admin.title"),
     },
     ...(config.get("share.enableUserRecipients")
       ? [
@@ -349,10 +357,12 @@ const Header = () => {
           <Group spacing={5} className={classes.links}>
             <Group>{desktopItems}</Group>
           </Group>
+          {!user && <GuestSignInButton /> /* StundTransfer */}
           <Burger
             opened={opened}
             onClick={toggle}
             className={classes.burger}
+            style={user ? undefined : { display: "none" } /* StundTransfer */}
             size="sm"
           />
         </Container>

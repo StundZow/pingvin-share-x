@@ -37,6 +37,7 @@ export async function middleware(request: NextRequest) {
       "/share/*",
       "/s/*",
       "/upload/*",
+      "/depot", // StundTransfer
       "/error",
       "/imprint",
       "/privacy",
@@ -68,6 +69,10 @@ export async function middleware(request: NextRequest) {
   } catch {
     user = null;
   }
+
+  // StundTransfer: visitors land directly on the deposit page (no sign-in page)
+  if (!user && route == "/")
+    return NextResponse.rewrite(new URL("/depot", request.url));
 
   if (!getConfig("share.allowRegistration")) {
     routes.disabled.routes.push("/auth/signUp");

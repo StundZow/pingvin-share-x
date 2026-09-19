@@ -43,6 +43,13 @@ export const STUND_ABANDON_AFTER_HOURS = intFromEnv(
   24 * 365,
 );
 
+/**
+ * "Continuer en invité" on the home page: opens the most recent valid deposit
+ * link, without knowing it. Anyone who finds the site can then drop files.
+ */
+export const STUND_GUEST_ACCESS =
+  process.env.STUNDTRANSFER_GUEST_ACCESS === "true";
+
 export const STUND_MAX_FILES = 20_000;
 export const STUND_MAX_FILES_PER_BATCH = 250;
 

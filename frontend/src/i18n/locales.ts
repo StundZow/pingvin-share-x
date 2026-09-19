@@ -31,6 +31,8 @@ import viatnamese from "./translations/vi-VN";
 import chineseSimplified from "./translations/zh-CN";
 import chineseTraditional from "./translations/zh-TW";
 import persian from "./translations/fa-IR";
+// StundTransfer: deposit mode texts
+import stundTransferMessages from "../stundtransfer/i18n";
 
 export interface Locale {
   name: string;
@@ -208,3 +210,12 @@ export const LOCALES: Record<string, Locale> = {
     messages: catalan,
   },
 };
+
+// StundTransfer: add the deposit mode texts to every language (English as fallback)
+for (const locale of Object.values(LOCALES)) {
+  locale.messages = {
+    ...stundTransferMessages["en-US"],
+    ...stundTransferMessages[locale.code],
+    ...locale.messages,
+  };
+}
