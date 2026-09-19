@@ -547,6 +547,19 @@ export class DepositService implements OnModuleInit {
     return { status: "RECEIVED" };
   }
 
+  /** The uploader cancels: files already sent are deleted from the staging folder. */
+  async cancelByUploader(depositId: string, secret: string) {
+    const deposit = await this.authorize(depositId, secret);
+    this.assertUploading(deposit);
+    await this.prisma.stundDeposit.update({
+      where: { id: depositId },
+      data: { status: "ABANDONED", error: "Cancelled by the uploader" },
+    });
+    await this.chunks.removeDeposit(depositId);
+    this.lastActivityWrite.delete(depositId);
+    this.logger.log(`Deposit ${depositId} cancelled by the uploader`);
+  }
+
   // ------------------------------------------------------------- final move
 
   /** Moves run one at a time, so two deposits never race for the same names. */

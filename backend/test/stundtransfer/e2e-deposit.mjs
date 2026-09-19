@@ -279,6 +279,26 @@ assert.equal(
 assert.deepEqual(await readdir(TRANSFER), ["Litsu - Beamng"]);
 ok('2nd deposit "litsu"/"BEAMNG" reuses the folder, nothing overwritten ("A001 (2).MP4")');
 
+// --- Deposit C: the uploader cancels
+const filesC = [file("annule.mov", 3_000_000)];
+const C = await startDeposit("Litsu", "Annulé", filesC);
+await uploadJobs(C, chunkJobs(C, (f, index) => index > 0));
+assert.equal(await exists(path.join(STAGING, C.depositId)), true);
+r = await api("DELETE", `/stundtransfer/deposits/${C.depositId}`, { secret: "wrong-secret" });
+assert.equal(r.status, 403);
+r = await api("DELETE", `/stundtransfer/deposits/${C.depositId}`, { secret: C.secret });
+assert.equal(r.status, 200);
+assert.equal(await exists(path.join(STAGING, C.depositId)), false);
+r = await api("PUT", `/stundtransfer/deposits/${C.depositId}/files/${C.files[0].id}/chunks/1`, {
+  secret: C.secret,
+  raw: filesC[0].data.subarray(C.chunkSize, 2 * C.chunkSize),
+});
+assert.equal(r.status, 409);
+r = await api("DELETE", `/stundtransfer/deposits/${A.depositId}`, { secret: A.secret });
+assert.equal(r.status, 409);
+assert.equal(await exists(path.join(TRANSFER, "Litsu - Annulé")), false);
+ok("uploader can cancel: sent chunks deleted, nothing stored, a received deposit cannot be cancelled");
+
 // --- Admin routes need a signed-in user
 r = await api("GET", "/stundtransfer/admin/deposits");
 assert.equal(r.status, 403);

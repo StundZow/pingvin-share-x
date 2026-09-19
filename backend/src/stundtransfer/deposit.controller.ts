@@ -99,6 +99,14 @@ export class DepositController {
     return this.depositService.complete(id, secret);
   }
 
+  @Delete("deposits/:id")
+  cancel(
+    @Param("id") id: string,
+    @Headers(SECRET_HEADER) secret: string,
+  ) {
+    return this.depositService.cancelByUploader(id, secret);
+  }
+
   // Admin side: owners of deposit links (and admins) see the deposits history.
 
   @Get("admin/deposits")

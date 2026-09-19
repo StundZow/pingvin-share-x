@@ -133,6 +133,13 @@ const complete = async (
     )
   ).data;
 
+const cancelDeposit = async (
+  session: Pick<DepositSession, "depositId" | "secret">,
+) =>
+  api.delete(`stundtransfer/deposits/${session.depositId}`, {
+    headers: { [SECRET_HEADER]: session.secret },
+  });
+
 const listDeposits = async (): Promise<AdminDeposit[]> =>
   (await api.get("stundtransfer/admin/deposits")).data;
 
@@ -153,6 +160,7 @@ export default {
   getDeposit,
   uploadChunk,
   complete,
+  cancelDeposit,
   listDeposits,
   getDepositDetails,
   retryDeposit,

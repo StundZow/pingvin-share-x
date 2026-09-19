@@ -17,6 +17,7 @@ import {
   ThemeIcon,
   Title,
 } from "@mantine/core";
+import { useModals } from "@mantine/modals";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   TbAlertTriangle,
@@ -24,6 +25,7 @@ import {
   TbInfoCircle,
   TbPlugConnectedX,
   TbRefresh,
+  TbX,
 } from "react-icons/tb";
 import { FormattedMessage, useIntl } from "react-intl";
 import Meta from "../components/Meta";
@@ -93,7 +95,11 @@ const DepositPage = ({ token, info }: { token: string; info: LinkInfo }) => {
   const [selected, setSelected] = useState<SelectedFile[]>([]);
   const [ignored, setIgnored] = useState(0);
   const [progress, setProgress] = useState<UploadProgress>();
+  const modals = useModals();
   const uploader = useRef<DepositUploader>();
+  // Deposit being uploaded, and whether the uploader cancelled it
+  const currentSession = useRef<DepositSession>();
+  const cancelled = useRef(false);
   const wakeLock = useRef<{ release: () => Promise<void> }>();
 
   const busy = ["preparing", "uploading", "finishing"].includes(phase.name);
@@ -213,6 +219,7 @@ const DepositPage = ({ token, info }: { token: string; info: LinkInfo }) => {
 
   const fail = (e: unknown) => {
     uploader.current?.stop();
+    if (cancelled.current) return;
     const fatal = toFatalError(e);
     if (!fatal) console.error(e);
     setPhase({ name: "error", code: fatal?.code ?? "unknown", values: fatal?.values });
@@ -224,11 +231,14 @@ const DepositPage = ({ token, info }: { token: string; info: LinkInfo }) => {
     paths: string[],
     totalSize: number,
   ) => {
+    currentSession.current = session;
+    cancelled.current = false;
     setPhase({ name: "uploading" });
     for (let round = 0; ; round++) {
       const run = new DepositUploader(session, items, setProgress);
       uploader.current = run;
       await run.run();
+      if (cancelled.current) return;
       setPhase({ name: "finishing" });
       try {
         await withNetworkRetry(() => stundTransferService.complete(session));
@@ -246,6 +256,7 @@ const DepositPage = ({ token, info }: { token: string; info: LinkInfo }) => {
   };
 
   const send = async () => {
+    cancelled.current = false;
     setProgress(undefined);
     setPhase({ name: "preparing" });
     try {
@@ -288,6 +299,7 @@ const DepositPage = ({ token, info }: { token: string; info: LinkInfo }) => {
   const resume = async () => {
     if (phase.name !== "resume") return;
     const { state, session } = phase;
+    cancelled.current = false;
     setProgress(undefined);
     try {
       await upload(
@@ -301,7 +313,34 @@ const DepositPage = ({ token, info }: { token: string; info: LinkInfo }) => {
     }
   };
 
+  const cancelUpload = () =>
+    modals.openConfirmModal({
+      title: t("stundtransfer.upload.cancel.confirm.title"),
+      children: (
+        <Text size="sm">{t("stundtransfer.upload.cancel.confirm.description")}</Text>
+      ),
+      labels: {
+        confirm: t("stundtransfer.upload.cancel.confirm.yes"),
+        cancel: t("stundtransfer.upload.cancel.confirm.no"),
+      },
+      confirmProps: { color: "red" },
+      onConfirm: async () => {
+        cancelled.current = true;
+        uploader.current?.stop();
+        const session = currentSession.current;
+        if (session)
+          await stundTransferService.cancelDeposit(session).catch(() => undefined);
+        resumeMemory.clear(token);
+        setProgress(undefined);
+        setPhase({ name: "form" });
+        toast.success(t("stundtransfer.upload.cancelled"));
+      },
+    });
+
   const startOver = () => {
+    // Giving up an interrupted upload: delete what was already sent
+    if (phase.name === "resume")
+      stundTransferService.cancelDeposit(phase.session).catch(() => undefined);
     resumeMemory.clear(token);
     setSelected([]);
     setIgnored(0);
@@ -550,6 +589,16 @@ const DepositPage = ({ token, info }: { token: string; info: LinkInfo }) => {
             <Alert color="blue" variant="light" icon={<TbInfoCircle />}>
               <FormattedMessage id="stundtransfer.upload.keep-open" />
             </Alert>
+            {phase.name === "uploading" && (
+              <Button
+                variant="subtle"
+                color="red"
+                leftIcon={<TbX />}
+                onClick={cancelUpload}
+              >
+                <FormattedMessage id="stundtransfer.upload.cancel" />
+              </Button>
+            )}
           </Stack>
         );
       }

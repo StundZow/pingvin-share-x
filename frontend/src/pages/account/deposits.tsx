@@ -39,6 +39,18 @@ const Deposits = () => {
   const modals = useModals();
   const [deposits, setDeposits] = useState<AdminDeposit[]>();
 
+  // Known server messages, translated
+  const errorLabel = (error?: string) => {
+    if (!error) return error;
+    if (error === "Cancelled by the uploader")
+      return t("stundtransfer.admin.error.cancelled-uploader");
+    if (error === "Cancelled by the administrator")
+      return t("stundtransfer.admin.error.cancelled-admin");
+    const inactive = error.match(/^No activity for ([0-9]+) hours$/);
+    if (inactive) return t("stundtransfer.admin.error.inactive", { hours: inactive[1] });
+    return error;
+  };
+
   const load = () =>
     stundTransferService
       .listDeposits()
@@ -64,7 +76,7 @@ const Deposits = () => {
         <Stack spacing="xs">
           {details.error && (
             <Text size="sm" color="red">
-              {details.error}
+              {errorLabel(details.error)}
             </Text>
           )}
           <Table fontSize="xs" striped>
@@ -170,7 +182,7 @@ const Deposits = () => {
                   </td>
                   <td>
                     <Tooltip
-                      label={deposit.error}
+                      label={errorLabel(deposit.error)}
                       disabled={!deposit.error}
                       multiline
                       width={320}

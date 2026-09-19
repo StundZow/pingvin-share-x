@@ -44,6 +44,13 @@ const english: Record<string, string> = {
   "stundtransfer.upload.reconnecting":
     "Connection lost, retrying automatically…",
   "stundtransfer.upload.finishing": "Finishing…",
+  "stundtransfer.upload.cancel": "Cancel upload",
+  "stundtransfer.upload.cancel.confirm.title": "Cancel the upload?",
+  "stundtransfer.upload.cancel.confirm.description":
+    "What was already sent will be deleted from the server. You can start again afterwards.",
+  "stundtransfer.upload.cancel.confirm.yes": "Yes, cancel",
+  "stundtransfer.upload.cancel.confirm.no": "Keep uploading",
+  "stundtransfer.upload.cancelled": "Upload cancelled.",
   "stundtransfer.upload.confirm-leave":
     "The upload is not finished. If you leave, you can resume it later by dropping the same files again.",
 
@@ -104,6 +111,9 @@ const english: Record<string, string> = {
   "stundtransfer.admin.details": "Details",
   "stundtransfer.admin.file.original": "Sent as",
   "stundtransfer.admin.file.final": "Stored as",
+  "stundtransfer.admin.error.cancelled-uploader": "Cancelled by the sender",
+  "stundtransfer.admin.error.cancelled-admin": "Cancelled by you",
+  "stundtransfer.admin.error.inactive": "Abandoned: no activity for {hours} hours",
 };
 
 const french: Record<string, string> = {
@@ -150,6 +160,13 @@ const french: Record<string, string> = {
   "stundtransfer.upload.reconnecting":
     "Connexion perdue, nouvelle tentative automatique…",
   "stundtransfer.upload.finishing": "Finalisation…",
+  "stundtransfer.upload.cancel": "Annuler l'envoi",
+  "stundtransfer.upload.cancel.confirm.title": "Annuler l'envoi ?",
+  "stundtransfer.upload.cancel.confirm.description":
+    "Ce qui a déjà été envoyé sera supprimé du serveur. Tu pourras recommencer ensuite.",
+  "stundtransfer.upload.cancel.confirm.yes": "Oui, annuler",
+  "stundtransfer.upload.cancel.confirm.no": "Continuer l'envoi",
+  "stundtransfer.upload.cancelled": "Envoi annulé.",
   "stundtransfer.upload.confirm-leave":
     "L'envoi n'est pas terminé. Si tu quittes, tu pourras le reprendre plus tard en redéposant les mêmes fichiers.",
 
@@ -210,6 +227,9 @@ const french: Record<string, string> = {
   "stundtransfer.admin.details": "Détails",
   "stundtransfer.admin.file.original": "Envoyé sous le nom",
   "stundtransfer.admin.file.final": "Rangé sous",
+  "stundtransfer.admin.error.cancelled-uploader": "Annulé par l'expéditeur",
+  "stundtransfer.admin.error.cancelled-admin": "Annulé par toi",
+  "stundtransfer.admin.error.inactive": "Abandonné : aucune activité depuis {hours} heures",
 };
 
 const stundTransferMessages: Record<string, Record<string, string>> = {
