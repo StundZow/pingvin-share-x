@@ -183,3 +183,53 @@ model Config {
 
   @@id([name, category])
 }
+
+// StundTransfer: rush deposits made through reverse share links.
+// Additive tables with no relation to upstream models, so upstream tables stay untouched.
+model StundDeposit {
+  id             String    @id @default(uuid())
+  createdAt      DateTime  @default(now())
+  lastActivityAt DateTime  @default(now())
+  completedAt    DateTime?
+
+  uploaderName String
+  videoName    String
+  // Final folder name inside the transfer directory, e.g. "Litsu - Beamng"
+  folderName   String
+  // UPLOADING | MOVING | DONE | ERROR | ABANDONED
+  status       String  @default("UPLOADING")
+  error        String?
+  // sha256 of the secret given to the uploader's browser (needed to resume)
+  secretHash   String
+
+  totalSize String @default("0")
+  fileCount Int    @default(0)
+  // Chunk size used by this deposit (kept even if the setting changes later)
+  chunkSize Int
+
+  // Plain ids (no foreign keys): history survives deleted links and users
+  reverseShareId      String?
+  reverseShareOwnerId String?
+
+  files StundDepositFile[]
+}
+
+model StundDepositFile {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  depositId String
+  deposit   StundDeposit @relation(fields: [depositId], references: [id], onDelete: Cascade)
+
+  // Path as sent by the browser, e.g. "Card A/CLIP/A001.MP4"
+  originalPath String
+  size         String
+  lastModified DateTime?
+  // UPLOADING | UPLOADED | DONE | ERROR
+  status       String    @default("UPLOADING")
+  // Path relative to the transfer directory once moved
+  finalPath    String?
+  error        String?
+
+  @@unique([depositId, originalPath])
+}
