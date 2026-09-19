@@ -22,6 +22,8 @@ import { ReverseShareModule } from "./reverseShare/reverseShare.module";
 import { ShareModule } from "./share/share.module";
 import { UserModule } from "./user/user.module";
 import { SystemModule } from "./system/system.module";
+// StundTransfer: deposit mode
+import { StundTransferModule } from "./stundtransfer/stundtransfer.module";
 
 import { SystemLanguageResolver } from "./i18n/systemLanguage.resolver";
 
@@ -51,6 +53,7 @@ const i18nPath = existsSync(join(__dirname, "../i18n"))
     ReverseShareModule,
     OAuthModule,
     AppCacheModule,
+    StundTransferModule, // StundTransfer
     I18nModule.forRoot({
       fallbackLanguage: "en-US",
       loaderOptions: {
