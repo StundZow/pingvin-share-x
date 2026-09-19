@@ -237,4 +237,18 @@ const stundTransferMessages: Record<string, Record<string, string>> = {
   "fr-FR": french,
 };
 
+/** Pingvin texts replaced by simpler ones (applied over the upstream translations). */
+export const upstreamOverrides: Record<string, Record<string, string>> = {
+  "en-US": {
+    "upload.dropzone.title": "Drag and drop your files or folders here to share them",
+    "upload.dropzone.description": "Up to {maxSize} in total.",
+  },
+  "fr-FR": {
+    "upload.dropzone.title": "Glisse-dépose tes fichiers ou dossiers ici pour les partager",
+    "upload.dropzone.description": "Jusqu'à {maxSize} au total.",
+    "upload.button.folder": "Choisir un dossier",
+    "upload.button.folder.append": "Ajouter un dossier",
+  },
+};
+
 export default stundTransferMessages;
