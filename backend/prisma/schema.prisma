@@ -196,6 +196,8 @@ model StundDeposit {
   videoName    String
   // Final folder name inside the transfer directory, e.g. "Litsu - Beamng"
   folderName   String
+  // Folder actually used once the deposit is stored, e.g. "Litsu - Beamng (2)"
+  finalFolder  String?
   // UPLOADING | MOVING | DONE | ERROR | ABANDONED
   status       String  @default("UPLOADING")
   error        String?

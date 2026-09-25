@@ -27,16 +27,22 @@ import {
 } from "./chunkStore";
 import { AddDepositFilesDTO, CreateDepositDTO } from "./dto/deposit.dto";
 import {
+  assertRealPathInside,
   depositFolderName,
+  existingFolderNamesLowercase,
   findExistingFolderName,
+  folderCandidates,
   resolveInside,
   sanitizeRelativePath,
+  sanitizeSegment,
 } from "./paths";
 import { moveIntoFolder } from "./safeMove";
 import {
   STUND_CHUNK_BYTES,
+  STUND_DESTINATION_KEY,
+  STUND_ROOT_DIR,
+  STUND_ROOT_NAME,
   STUND_STAGING_DIR,
-  STUND_TRANSFER_DIR,
   isStundTransferEnabled,
 } from "./stundtransfer.config";
 
@@ -79,6 +85,7 @@ const ADMIN_DEPOSIT_FIELDS = {
   uploaderName: true,
   videoName: true,
   folderName: true,
+  finalFolder: true,
   status: true,
   error: true,
   totalSize: true,
@@ -112,7 +119,7 @@ export class DepositService implements OnModuleInit {
       const instantMoves = await this.checkStorage();
       this.storageReady = true;
       this.logger.log(
-        `Deposit mode enabled. Received files: ${STUND_TRANSFER_DIR} | uploads in progress: ${STUND_STAGING_DIR}`,
+        `Deposit mode enabled. Mounted folder: ${STUND_ROOT_DIR} | destination: /${this.destinationRelative()} | uploads in progress: ${STUND_STAGING_DIR}`,
       );
       if (!instantMoves)
         this.logger.warn(
@@ -135,12 +142,12 @@ export class DepositService implements OnModuleInit {
 
   /** Creates both folders, checks they are writable and whether moves between them are instant. */
   private async checkStorage(): Promise<boolean> {
-    await fs.mkdir(STUND_TRANSFER_DIR, { recursive: true });
+    await fs.mkdir(STUND_ROOT_DIR, { recursive: true });
     await fs.mkdir(STUND_STAGING_DIR, { recursive: true });
 
     const suffix = crypto.randomBytes(6).toString("hex");
     const probe = path.join(STUND_STAGING_DIR, `.probe-${suffix}`);
-    const linked = path.join(STUND_TRANSFER_DIR, `.stundtransfer-probe-${suffix}`);
+    const linked = path.join(STUND_ROOT_DIR, `.stundtransfer-probe-${suffix}`);
     await fs.writeFile(probe, "");
     try {
       await fs.writeFile(linked, "");
@@ -609,6 +616,118 @@ export class DepositService implements OnModuleInit {
       });
   }
 
+  /**
+   * One new folder per deposit: "Litsu - Beamng", then "Litsu - Beamng (2)"...
+   * (names compared without case, like Windows and SMB do). With the
+   * "groupDeposits" setting, the existing folder is reused instead.
+   */
+  private async chooseFolder(folderName: string): Promise<string> {
+    const destination = this.destinationRelative();
+    const parent = this.folderPath(destination);
+    await fs.mkdir(parent, { recursive: true });
+    await assertRealPathInside(STUND_ROOT_DIR, parent);
+    const relative = (name: string) => [destination, name].filter(Boolean).join("/");
+
+    if (this.config.get("stundtransfer.groupDeposits"))
+      return relative(await findExistingFolderName(parent, folderName));
+
+    const taken = await existingFolderNamesLowercase(parent);
+    for (const candidate of folderCandidates(folderName)) {
+      if (taken.has(candidate.normalize("NFC").toLowerCase())) continue;
+      try {
+        // Not recursive: fails if the folder appeared meanwhile
+        await fs.mkdir(resolveInside(parent, candidate));
+        return relative(candidate);
+      } catch (e) {
+        if (e?.code !== "EEXIST") throw e;
+      }
+    }
+    throw new Error(`No free folder name for "${folderName}"`);
+  }
+
+  // ------------------------------------------------- destination (admin)
+
+  /** "A/B" -> ["A", "B"]; refuses "..", hidden and Synology system folders. */
+  private folderParts(relative?: string): string[] {
+    const parts = (relative ?? "")
+      .split(/[\\/]+/)
+      .filter((part) => part !== "" && part !== ".");
+    if (parts.some((part) => part === ".." || /^[.@#]/.test(part)))
+      throw stundError(HttpStatus.BAD_REQUEST, "stund_bad_folder", "Invalid folder");
+    return parts;
+  }
+
+  /** Absolute path of a folder given relative to the mounted folder ("" = the mounted folder). */
+  private folderPath(relative: string) {
+    const parts = this.folderParts(relative);
+    return parts.length ? resolveInside(STUND_ROOT_DIR, ...parts) : STUND_ROOT_DIR;
+  }
+
+  /** Destination chosen with the folder picker, relative to the mounted folder. */
+  private destinationRelative(): string {
+    try {
+      return this.folderParts(this.config.get(STUND_DESTINATION_KEY) ?? "").join("/");
+    } catch {
+      this.logger.error("Invalid destination setting, using the mounted folder");
+      return "";
+    }
+  }
+
+  getDestination() {
+    return {
+      enabled: isStundTransferEnabled(),
+      rootName: STUND_ROOT_NAME,
+      destination: this.destinationRelative(),
+    };
+  }
+
+  async listFolders(relative?: string) {
+    this.assertReady();
+    const parts = this.folderParts(relative);
+    const dir = this.folderPath(parts.join("/"));
+    let entries: import("fs").Dirent[];
+    try {
+      await assertRealPathInside(STUND_ROOT_DIR, dir);
+      entries = await fs.readdir(dir, { withFileTypes: true });
+    } catch {
+      throw stundError(HttpStatus.NOT_FOUND, "stund_folder_not_found", "Folder not found");
+    }
+    return {
+      path: parts.join("/"),
+      folders: entries
+        .filter((e) => e.isDirectory() && !/^[.@#]/.test(e.name))
+        .map((e) => e.name)
+        .sort((a, b) => a.localeCompare(b, "fr", { numeric: true })),
+    };
+  }
+
+  async createFolder(relative: string | undefined, name: string) {
+    this.assertReady();
+    const parts = this.folderParts(relative);
+    const clean = sanitizeSegment(name);
+    if (!clean || /^[.@#]/.test(clean))
+      throw stundError(HttpStatus.BAD_REQUEST, "stund_bad_folder", "Invalid folder name");
+    const parent = this.folderPath(parts.join("/"));
+    await assertRealPathInside(STUND_ROOT_DIR, parent);
+    await fs.mkdir(resolveInside(parent, clean), { recursive: true });
+    return { path: [...parts, clean].join("/") };
+  }
+
+  async setDestination(relative: string | undefined, user: User) {
+    this.assertReady();
+    const parts = this.folderParts(relative);
+    const dir = this.folderPath(parts.join("/"));
+    try {
+      await assertRealPathInside(STUND_ROOT_DIR, dir);
+      if (!(await fs.stat(dir)).isDirectory()) throw new Error("not a folder");
+    } catch {
+      throw stundError(HttpStatus.NOT_FOUND, "stund_folder_not_found", "Folder not found");
+    }
+    await this.config.update(STUND_DESTINATION_KEY, parts.join("/"));
+    this.logger.log(`Destination set to "/${parts.join("/")}" by ${user.username}`);
+    return this.getDestination();
+  }
+
   private async moveDeposit(depositId: string) {
     const deposit = await this.prisma.stundDeposit.findUnique({
       where: { id: depositId },
@@ -616,16 +735,15 @@ export class DepositService implements OnModuleInit {
     });
     if (!deposit || deposit.status !== "MOVING") return;
 
-    // "litsu - beamng" goes into an existing "Litsu - Beamng" folder
-    const folder = await findExistingFolderName(
-      STUND_TRANSFER_DIR,
-      deposit.folderName,
-    );
-    if (folder !== deposit.folderName)
+    // The folder is chosen once, then reused if the move is retried or resumed
+    let folder = deposit.finalFolder;
+    if (!folder) {
+      folder = await this.chooseFolder(deposit.folderName);
       await this.prisma.stundDeposit.update({
         where: { id: depositId },
-        data: { folderName: folder },
+        data: { finalFolder: folder },
       });
+    }
 
     const failures: string[] = [];
     let copies = 0;
@@ -634,9 +752,9 @@ export class DepositService implements OnModuleInit {
       try {
         const segments = sanitizeRelativePath(file.originalPath);
         const fileName = segments.pop();
-        const destDir = resolveInside(STUND_TRANSFER_DIR, folder, ...segments);
+        const destDir = resolveInside(STUND_ROOT_DIR, ...folder.split("/"), ...segments);
         const { finalPath, method } = await moveIntoFolder({
-          root: STUND_TRANSFER_DIR,
+          root: STUND_ROOT_DIR,
           src: this.chunks.dataPath(depositId, file.id),
           destDir,
           fileName,
@@ -650,7 +768,7 @@ export class DepositService implements OnModuleInit {
             status: "DONE",
             error: null,
             finalPath: path
-              .relative(STUND_TRANSFER_DIR, finalPath)
+              .relative(STUND_ROOT_DIR, finalPath)
               .split(path.sep)
               .join("/"),
           },

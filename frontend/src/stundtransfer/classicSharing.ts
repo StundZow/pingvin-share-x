@@ -4,7 +4,6 @@
 
 /** Pages of the classic sharing, redirected to the deposits when it is hidden. */
 export const CLASSIC_SHARING_ROUTES = [
-  "/",
   "/upload",
   "/account/shares",
   "/account/reverseShares",

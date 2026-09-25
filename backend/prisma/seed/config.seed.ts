@@ -521,11 +521,24 @@ export const configVariables = {
       type: "timespan",
       defaultValue: "3 days",
     },
+    // false: one folder per deposit ("Litsu - Beamng (2)"); true: same name + video share a folder
+    groupDeposits: {
+      type: "boolean",
+      defaultValue: "false",
+    },
     // Pingvin's own sharing (upload page, "Mes partages", "Partages inversés")
     classicSharing: {
       type: "boolean",
       defaultValue: "false",
       secret: false,
+    },
+  },
+  // StundTransfer: set with the folder picker (Administration > Dossier de
+  // réception), not listed in the settings pages
+  stundtransferpaths: {
+    destination: {
+      type: "string",
+      defaultValue: "",
     },
   },
 } satisfies ConfigVariables;

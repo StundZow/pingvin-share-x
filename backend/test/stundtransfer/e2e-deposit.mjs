@@ -16,7 +16,10 @@ const TOKEN = process.env.TOKEN ?? "depot-test";
 const EXHAUSTED_TOKEN = process.env.EXHAUSTED_TOKEN ?? "lien-epuise";
 const TRANSFER = process.env.TRANSFER_DIR;
 const STAGING =
-  process.env.STAGING_DIR ?? path.join(path.dirname(TRANSFER ?? "."), "en-cours");
+  process.env.STAGING_DIR ?? path.join(TRANSFER ?? ".", ".stundtransfer-en-cours");
+// Deposit folders, without hidden folders (staging)
+const depositFolders = async () =>
+  (await readdir(TRANSFER)).filter((name) => !name.startsWith(".")).sort();
 const DB_PATH = process.env.DB_PATH;
 if (!TRANSFER) throw new Error("TRANSFER_DIR is required");
 
@@ -262,7 +265,9 @@ for (const [f, relative] of expectedA) {
 }
 ok('files are in "Litsu - Beamng/" with the right names, folders, content and dates');
 
-assert.deepEqual((await readdir(path.dirname(TRANSFER))).sort(), ["en-cours", "transfer"]);
+const outside = (await readdir(path.dirname(TRANSFER))).filter((n) => !["transfer", "en-cours"].includes(n));
+assert.deepEqual(outside, []);
+assert.deepEqual(await depositFolders(), ["Litsu - Beamng"]);
 assert.equal(await exists(path.join(STAGING, A.depositId)), false);
 ok("nothing written outside the transfer folder, staging cleaned (no duplicate kept)");
 
@@ -273,15 +278,17 @@ const B = await startDeposit("litsu", "BEAMNG", filesB);
 await uploadJobs(B, chunkJobs(B), 4, "application/octet-stream");
 r = await api("POST", `/stundtransfer/deposits/${B.depositId}/complete`, { secret: B.secret });
 assert.equal(r.status, 202);
-const renamed = path.join(folderA, "Rushes", "Card A", "A001 (2).MP4");
-await waitForFile(renamed);
-assert.equal(sha(await readFile(renamed)), sha(filesB[0].data));
+// One folder per deposit: same name and video (other casing) -> "(2)"
+const secondFolder = path.join(TRANSFER, "litsu - BEAMNG (2)");
+const fileB = path.join(secondFolder, "Rushes", "Card A", "A001.MP4");
+await waitForFile(fileB);
+assert.equal(sha(await readFile(fileB)), sha(filesB[0].data));
 assert.equal(
   sha(await readFile(path.join(folderA, "Rushes", "Card A", "A001.MP4"))),
   sha(filesA[0].data),
 );
-assert.deepEqual(await readdir(TRANSFER), ["Litsu - Beamng"]);
-ok('2nd deposit "litsu"/"BEAMNG" reuses the folder, nothing overwritten ("A001 (2).MP4")');
+assert.deepEqual(await depositFolders(), ["Litsu - Beamng", "litsu - BEAMNG (2)"]);
+ok('2nd deposit "litsu"/"BEAMNG" gets its own folder "litsu - BEAMNG (2)", nothing overwritten');
 ok("chunk size chosen per deposit; buffered (old) and streamed (new) chunks both accepted");
 
 // --- Deposit C: the uploader cancels

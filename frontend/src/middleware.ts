@@ -76,8 +76,9 @@ export async function middleware(request: NextRequest) {
     user = null;
   }
 
-  // StundTransfer: visitors land directly on the deposit page (no sign-in page)
-  if (!user && route == "/")
+  // StundTransfer: the home page is the deposit page (for visitors, and for
+  // signed-in users too when the classic sharing is hidden)
+  if (route == "/" && (!user || !isClassicSharingEnabled(getConfig)))
     return NextResponse.rewrite(new URL("/depot", request.url));
 
   // StundTransfer: classic sharing hidden -> its pages lead to the deposits

@@ -10,7 +10,7 @@ import {
 } from "@mantine/core";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { TbInbox, TbLink, TbRefresh, TbSettings, TbUsers } from "react-icons/tb"; // StundTransfer: TbInbox
+import { TbFolder, TbInbox, TbLink, TbRefresh, TbSettings, TbUsers } from "react-icons/tb"; // StundTransfer: TbInbox, TbFolder
 import { FormattedMessage } from "react-intl";
 import Meta from "../../components/Meta";
 import useTranslate from "../../hooks/useTranslate.hook";
@@ -45,6 +45,11 @@ const Admin = () => {
       title: t("stundtransfer.admin.card"),
       icon: TbInbox,
       route: "/account/deposits",
+    },
+    {
+      title: t("stundtransfer.destination.title"),
+      icon: TbFolder,
+      route: "/admin/destination",
     },
     {
       title: t("admin.button.users"),

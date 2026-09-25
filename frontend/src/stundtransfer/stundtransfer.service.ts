@@ -47,6 +47,8 @@ export type AdminDeposit = {
   uploaderName: string;
   videoName: string;
   folderName: string;
+  // Folder used, relative to the mounted folder (e.g. "5 - StundTransfer/Litsu - Beamng (2)")
+  finalFolder?: string;
   status: "UPLOADING" | "MOVING" | "DONE" | "ERROR" | "ABANDONED";
   error?: string;
   totalSize: number;
@@ -144,6 +146,26 @@ const cancelDeposit = async (
     headers: { [SECRET_HEADER]: session.secret },
   });
 
+export type Destination = {
+  enabled: boolean;
+  // Name of the folder mounted in the container (e.g. the Synology shared folder)
+  rootName: string;
+  // Relative to that folder, "" = the folder itself
+  destination: string;
+};
+
+const getDestination = async (): Promise<Destination> =>
+  (await api.get("stundtransfer/admin/destination")).data;
+
+const setDestination = async (path: string): Promise<Destination> =>
+  (await api.put("stundtransfer/admin/destination", { path })).data;
+
+const listFolders = async (path: string): Promise<{ path: string; folders: string[] }> =>
+  (await api.get("stundtransfer/admin/folders", { params: { path } })).data;
+
+const createFolder = async (path: string, name: string): Promise<{ path: string }> =>
+  (await api.post("stundtransfer/admin/folders", { path, name })).data;
+
 const listDeposits = async (): Promise<AdminDeposit[]> =>
   (await api.get("stundtransfer/admin/deposits")).data;
 
@@ -165,6 +187,10 @@ export default {
   uploadChunk,
   complete,
   cancelDeposit,
+  getDestination,
+  setDestination,
+  listFolders,
+  createFolder,
   listDeposits,
   getDepositDetails,
   retryDeposit,

@@ -14,6 +14,7 @@ import {
   ParseIntPipe,
   Post,
   Put,
+  Query,
   Req,
   UseGuards,
 } from "@nestjs/common";
@@ -21,9 +22,15 @@ import { SkipThrottle, Throttle } from "@nestjs/throttler";
 import { User } from "@prisma/client";
 import { Request } from "express";
 import { GetUser } from "src/auth/decorator/getUser.decorator";
+import { AdministratorGuard } from "src/auth/guard/isAdmin.guard";
 import { JwtGuard } from "src/auth/guard/jwt.guard";
 import { DepositService } from "./deposit.service";
-import { AddDepositFilesDTO, CreateDepositDTO } from "./dto/deposit.dto";
+import {
+  AddDepositFilesDTO,
+  CreateDepositDTO,
+  CreateFolderDTO,
+  FolderPathDTO,
+} from "./dto/deposit.dto";
 
 const SECRET_HEADER = "x-deposit-secret";
 // Chunks sent with this type are streamed to disk instead of being buffered in memory
@@ -116,6 +123,32 @@ export class DepositController {
     @Headers(SECRET_HEADER) secret: string,
   ) {
     return this.depositService.cancelByUploader(id, secret);
+  }
+
+  // Admin: where deposits arrive (folder picker)
+
+  @Get("admin/destination")
+  @UseGuards(JwtGuard, AdministratorGuard)
+  getDestination() {
+    return this.depositService.getDestination();
+  }
+
+  @Put("admin/destination")
+  @UseGuards(JwtGuard, AdministratorGuard)
+  setDestination(@Body() body: FolderPathDTO, @GetUser() user: User) {
+    return this.depositService.setDestination(body.path, user);
+  }
+
+  @Get("admin/folders")
+  @UseGuards(JwtGuard, AdministratorGuard)
+  listFolders(@Query("path") path?: string) {
+    return this.depositService.listFolders(path);
+  }
+
+  @Post("admin/folders")
+  @UseGuards(JwtGuard, AdministratorGuard)
+  createFolder(@Body() body: CreateFolderDTO) {
+    return this.depositService.createFolder(body.path, body.name);
   }
 
   // Admin side: owners of deposit links (and admins) see the deposits history.

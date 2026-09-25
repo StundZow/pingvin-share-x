@@ -26,6 +26,20 @@ const english: Record<string, string> = {
   "admin.config.stundtransfer.abandon-after.description":
     "An upload with no activity for this long is deleted from the \"in progress\" folder. Received files are never touched.",
   "stundtransfer.admin.card": "Received drops",
+  "stundtransfer.destination.title": "Destination folder",
+  "stundtransfer.destination.current": "Drops arrive in:",
+  "stundtransfer.destination.change": "Change",
+  "stundtransfer.destination.choose": "Choose this folder",
+  "stundtransfer.destination.chosen": "Drops will now arrive in {folder}",
+  "stundtransfer.destination.new-folder": "New folder",
+  "stundtransfer.destination.new-folder.label": "Folder name",
+  "stundtransfer.destination.create": "Create",
+  "stundtransfer.destination.empty": "No sub-folder here.",
+  "stundtransfer.destination.help":
+    "Only the folders of \"{root}\" are visible: it is the folder shared with StundTransfer in compose.yaml. Each drop creates its own folder \"Name - Video\" inside the chosen folder.",
+  "admin.config.stundtransfer.group-deposits": "Group drops with the same name",
+  "admin.config.stundtransfer.group-deposits.description":
+    "Off: each drop gets its own folder (\"Litsu - Beamng\", then \"Litsu - Beamng (2)\"...). On: drops with the same name and video go into the same folder.",
   "admin.config.stundtransfer.classic-sharing": "Classic sharing",
   "admin.config.stundtransfer.classic-sharing.description":
     "Shows Pingvin's own sharing for signed-in users: upload page to send files to someone with a download link, \"My shares\" and \"Reverse shares\". Off: signed-in users only see the received drops and the administration.",
@@ -165,6 +179,20 @@ const french: Record<string, string> = {
   "admin.config.stundtransfer.abandon-after.description":
     "Un envoi sans activité depuis ce délai est supprimé du dossier « en cours ». Les fichiers reçus ne sont jamais touchés.",
   "stundtransfer.admin.card": "Dépôts reçus",
+  "stundtransfer.destination.title": "Dossier de réception",
+  "stundtransfer.destination.current": "Les dépôts arrivent dans :",
+  "stundtransfer.destination.change": "Changer",
+  "stundtransfer.destination.choose": "Choisir ce dossier",
+  "stundtransfer.destination.chosen": "Les dépôts arriveront maintenant dans {folder}",
+  "stundtransfer.destination.new-folder": "Nouveau dossier",
+  "stundtransfer.destination.new-folder.label": "Nom du dossier",
+  "stundtransfer.destination.create": "Créer",
+  "stundtransfer.destination.empty": "Aucun sous-dossier ici.",
+  "stundtransfer.destination.help":
+    "Seuls les dossiers de « {root} » sont visibles : c'est le dossier partagé avec StundTransfer dans le compose.yaml. Chaque dépôt crée son propre dossier « Nom - Vidéo » dans le dossier choisi.",
+  "admin.config.stundtransfer.group-deposits": "Regrouper les dépôts du même nom",
+  "admin.config.stundtransfer.group-deposits.description":
+    "Désactivé : chaque dépôt a son propre dossier (« Litsu - Beamng », puis « Litsu - Beamng (2) »…). Activé : les dépôts avec le même nom et la même vidéo vont dans le même dossier.",
   "admin.config.stundtransfer.classic-sharing": "Partage classique",
   "admin.config.stundtransfer.classic-sharing.description":
     "Affiche le partage d'origine de Pingvin pour les comptes connectés : page « Téléverser » pour envoyer des fichiers à quelqu'un avec un lien de téléchargement, « Mes partages » et « Partages inversés ». Désactivé : une fois connecté, on ne voit que les dépôts reçus et l'administration.",

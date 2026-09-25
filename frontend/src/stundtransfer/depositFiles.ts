@@ -26,6 +26,10 @@ export function selectFiles(files: File[]) {
   return { kept, ignored };
 }
 
+/** "A/B" shown as "Root › A › B" */
+export const displayFolder = (rootName: string, path: string) =>
+  [rootName, ...path.split("/").filter(Boolean)].join(" › ");
+
 // Size first: it only contains digits, so the key is unambiguous
 export const fileKey = (path: string, size: number) => `${size}:${path}`;
 

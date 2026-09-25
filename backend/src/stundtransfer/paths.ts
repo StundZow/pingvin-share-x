@@ -104,6 +104,35 @@ export function depositFolderName(uploader: string, video: string): string {
 }
 
 /**
+ * Folder names for a deposit: "Litsu - Beamng", "Litsu - Beamng (2)", ...
+ * Unlike file names there is no extension ("Mr. X - Beamng" stays intact),
+ * and the name is shortened if needed so the suffix always fits.
+ */
+export function* folderCandidates(folderName: string, max = 10000) {
+  const base = truncateUtf8(folderName, MAX_SEGMENT_BYTES).replace(/[.\s]+$/, "");
+  yield base;
+  for (let i = 2; i <= max; i++) {
+    const suffix = ` (${i})`;
+    const room = MAX_SEGMENT_BYTES - Buffer.byteLength(suffix, "utf8");
+    yield `${truncateUtf8(base, room).replace(/[.\s]+$/, "")}${suffix}`;
+  }
+}
+
+/** Existing folder names in `root`, lowercased (SMB/Windows ignore case). */
+export async function existingFolderNamesLowercase(root: string) {
+  try {
+    const entries = await fs.readdir(root, { withFileTypes: true });
+    return new Set(
+      entries
+        .filter((e) => e.isDirectory())
+        .map((e) => e.name.normalize("NFC").toLowerCase()),
+    );
+  } catch {
+    return new Set<string>();
+  }
+}
+
+/**
  * Resolves `segments` under `root` and guarantees the result stays strictly
  * inside `root` (path traversal protection).
  */

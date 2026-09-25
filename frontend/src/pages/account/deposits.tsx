@@ -2,6 +2,7 @@
 import {
   ActionIcon,
   Badge,
+  Button,
   Box,
   Center,
   Group,
@@ -14,14 +15,17 @@ import {
 import { useModals } from "@mantine/modals";
 import moment from "moment";
 import { useEffect, useState } from "react";
-import { TbListDetails, TbRefresh, TbTrash } from "react-icons/tb";
+import Link from "next/link";
+import { TbFolder, TbListDetails, TbRefresh, TbTrash } from "react-icons/tb";
 import { FormattedMessage, useIntl } from "react-intl";
 import Meta from "../../components/Meta";
 import CenterLoader from "../../components/core/CenterLoader";
 import useTranslate from "../../hooks/useTranslate.hook";
-import { formatSize } from "../../stundtransfer/depositFiles";
+import useUser from "../../hooks/user.hook";
+import { displayFolder, formatSize } from "../../stundtransfer/depositFiles";
 import stundTransferService, {
   AdminDeposit,
+  Destination,
 } from "../../stundtransfer/stundtransfer.service";
 import toast from "../../utils/toast.util";
 
@@ -38,6 +42,13 @@ const Deposits = () => {
   const intl = useIntl();
   const modals = useModals();
   const [deposits, setDeposits] = useState<AdminDeposit[]>();
+  const { user } = useUser();
+  const [destination, setDestination] = useState<Destination>();
+
+  useEffect(() => {
+    if (user?.isAdmin)
+      stundTransferService.getDestination().then(setDestination).catch(() => undefined);
+  }, [user?.isAdmin]);
 
   // Known server messages, translated
   const errorLabel = (error?: string) => {
@@ -145,9 +156,23 @@ const Deposits = () => {
   return (
     <>
       <Meta title={t("stundtransfer.admin.title")} />
-      <Title order={3} mb={30}>
+      <Title order={3} mb={destination ? "xs" : 30}>
         <FormattedMessage id="stundtransfer.admin.title" />
       </Title>
+      {destination && (
+        <Group spacing="xs" mb={30}>
+          <TbFolder />
+          <Text size="sm">
+            <FormattedMessage id="stundtransfer.destination.current" />{" "}
+            <Text span weight={600}>
+              {displayFolder(destination.rootName, destination.destination)}
+            </Text>
+          </Text>
+          <Button component={Link} href="/admin/destination" variant="subtle" size="xs" compact>
+            <FormattedMessage id="stundtransfer.destination.change" />
+          </Button>
+        </Group>
+      )}
       {deposits.length === 0 ? (
         <Center style={{ height: "50vh" }}>
           <Text color="dimmed">
@@ -162,6 +187,7 @@ const Deposits = () => {
                 <th>{t("stundtransfer.admin.when")}</th>
                 <th>{t("stundtransfer.admin.who")}</th>
                 <th>{t("stundtransfer.admin.video")}</th>
+                <th>{t("stundtransfer.admin.folder")}</th>
                 <th>{t("stundtransfer.admin.files")}</th>
                 <th>{t("stundtransfer.admin.size")}</th>
                 <th>{t("stundtransfer.admin.status")}</th>
@@ -176,6 +202,11 @@ const Deposits = () => {
                   </td>
                   <td>{deposit.uploaderName}</td>
                   <td>{deposit.videoName}</td>
+                  <td style={{ wordBreak: "break-word" }}>
+                    <Text size="sm" color="dimmed">
+                      {(deposit.finalFolder ?? "").split("/").pop() || "…"}
+                    </Text>
+                  </td>
                   <td>{deposit.fileCount}</td>
                   <td style={{ whiteSpace: "nowrap" }}>
                     {formatSize(deposit.totalSize, intl.locale)}

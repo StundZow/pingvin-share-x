@@ -10,6 +10,8 @@ import {
   MAX_SEGMENT_BYTES,
   candidateNames,
   depositFolderName,
+  existingFolderNamesLowercase,
+  folderCandidates,
   findExistingFolderName,
   resolveInside,
   sanitizeRelativePath,
@@ -149,6 +151,40 @@ describe("candidateNames", () => {
     const names = candidateNames("README");
     names.next();
     assert.equal(names.next().value, "README (2)");
+  });
+});
+
+describe("folderCandidates", () => {
+  it('adds " (2)", " (3)"... at the end, even with a dot in the name', () => {
+    const names = folderCandidates("Mr. X - Beamng");
+    assert.equal(names.next().value, "Mr. X - Beamng");
+    assert.equal(names.next().value, "Mr. X - Beamng (2)");
+    assert.equal(names.next().value, "Mr. X - Beamng (3)");
+  });
+
+  it("keeps long names under the byte limit, suffix included", () => {
+    const long = depositFolderName("🎬".repeat(60), "é".repeat(60));
+    const names = folderCandidates(long);
+    const first = names.next().value as string;
+    const second = names.next().value as string;
+    assert.ok(Buffer.byteLength(first, "utf8") <= MAX_SEGMENT_BYTES);
+    assert.ok(Buffer.byteLength(second, "utf8") <= MAX_SEGMENT_BYTES);
+    assert.ok(second.endsWith(" (2)"));
+    assert.ok(!second.includes(String.fromCodePoint(0xfffd)));
+  });
+});
+
+describe("existingFolderNamesLowercase", () => {
+  it("lists folders only, lowercased", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "stund-"));
+    try {
+      await fs.mkdir(path.join(root, "Litsu - Beamng"));
+      await fs.writeFile(path.join(root, "file.txt"), "");
+      assert.deepEqual([...(await existingFolderNamesLowercase(root))], ["litsu - beamng"]);
+      assert.equal((await existingFolderNamesLowercase(path.join(root, "nope"))).size, 0);
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
   });
 });
 

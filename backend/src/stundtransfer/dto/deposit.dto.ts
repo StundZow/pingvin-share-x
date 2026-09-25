@@ -78,3 +78,17 @@ export class AddDepositFilesDTO {
   @Type(() => DepositFileDTO)
   files: DepositFileDTO[];
 }
+
+export class FolderPathDTO {
+  // Relative to the mounted folder, "" = the mounted folder itself
+  @IsOptional()
+  @IsString()
+  @Length(0, 4096)
+  path?: string;
+}
+
+export class CreateFolderDTO extends FolderPathDTO {
+  @IsString()
+  @Length(1, 200)
+  name: string;
+}

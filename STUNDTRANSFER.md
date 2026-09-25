@@ -18,7 +18,9 @@ Fork de [Pingvin Share X](https://github.com/smp46/pingvin-share-x) transformé 
 - Le **dépôt public** (accueil) ne demande aucun lien. Les **liens de dépôt** (« partages inversés » de Pingvin) restent possibles en plus, par exemple pour une personne précise avec une expiration, une taille max et un nombre d'utilisations max.
 - L'envoi se fait par morceaux (Paramètres → Partage → taille des morceaux, 20 Mo), plusieurs en parallèle, avec reprise automatique en cas de coupure et reprise après rafraîchissement de la page (il suffit de redéposer les mêmes fichiers).
 - Pendant l'envoi, les morceaux sont écrits dans un dossier « en cours » **sur le même dossier partagé** que la destination : à la fin, le rangement est un simple renommage (instantané, jamais de doublon). Si ce n'est pas possible (autre disque), le serveur copie → vérifie la taille → supprime l'original, et l'affiche dans ses journaux.
-- Noms nettoyés (caractères interdits Windows/Synology, `..`, chemins absolus, espaces), arborescence des dossiers conservée, jamais d'écrasement (` (2)`, ` (3)`…), dossier réutilisé si `Nom - Vidéo` existe déjà (même avec une autre casse), date de modification d'origine conservée.
+- **Un dossier par dépôt** : `Nom - Vidéo`, puis `Nom - Vidéo (2)`, `(3)`… si le nom est déjà pris (sans tenir compte des majuscules). Le réglage « Regrouper les dépôts du même nom » revient à un dossier commun.
+- Noms nettoyés (caractères interdits Windows/Synology, `..`, chemins absolus, espaces), arborescence des dossiers conservée, jamais d'écrasement de fichier (` (2)`, ` (3)`…), date de modification d'origine conservée.
+- **Dossier de réception** : Administration → Dossier de réception, un explorateur limité au dossier monté dans le conteneur (dossiers cachés, `#recycle` et `@eaDir` exclus). On peut y créer un dossier et le choisir.
 - Les envois abandonnés sont supprimés du dossier « en cours » après le délai choisi (3 jours par défaut).
 
 ## Réglages
@@ -32,6 +34,7 @@ Fork de [Pingvin Share X](https://github.com/smp46/pingvin-share-x) transformé 
 | Morceaux envoyés en même temps | 6 | Par navigateur (1 à 16) |
 | Espace à garder libre | 20 Go | Refuse un dépôt qui laisserait moins d'espace libre |
 | Supprimer les envois inachevés après | 3 jours | Nettoyage du dossier « en cours » |
+| Regrouper les dépôts du même nom | désactivé | Désactivé : un dossier par dépôt |
 | Partage classique | désactivé | Affiche le partage d'origine de Pingvin (Téléverser, Mes partages, Partages inversés). Désactivé : ses pages renvoient vers « Dépôts reçus » (connecté) ou la page de dépôt (visiteur) |
 
 Le nom affiché en haut et le logo se changent dans **Paramètres → Général**.
@@ -40,8 +43,11 @@ Le nom affiché en haut et le logo se changent dans **Paramètres → Général*
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `STUNDTRANSFER_TRANSFER_DIR` | *(vide = mode dépôt désactivé)* | Dossier de réception **dans le conteneur** |
-| `STUNDTRANSFER_STAGING_DIR` | `en-cours` à côté du dossier de réception | Envois en cours. Doit être dans le même dossier partagé que la réception pour un rangement instantané |
+| `STUNDTRANSFER_ROOT_DIR` (ancien nom : `STUNDTRANSFER_TRANSFER_DIR`) | *(vide = mode dépôt désactivé)* | Dossier du NAS monté dans le conteneur. Le dossier de réception se choisit **dedans**, depuis l'admin (par défaut : lui-même) |
+| `STUNDTRANSFER_ROOT_NAME` | nom du dossier monté | Nom affiché dans l'admin (ex. `A - STUND - NAS`) |
+| `STUNDTRANSFER_STAGING_DIR` | `.stundtransfer-en-cours` dans le dossier monté | Envois en cours. Doit être dans le même dossier partagé Synology que la réception pour un rangement instantané |
+
+Le conteneur n'écrit qu'avec les droits de « Tout le monde » (utilisateur interne uid 1000) : le dossier de réception choisi doit avoir **Tout le monde : Lecture + Écriture**, et le dossier monté au moins la lecture pour pouvoir le parcourir.
 
 **Pas de `config.yaml`** : quand un `config.yaml` est monté, Pingvin verrouille tous les réglages de l'interface. Pour passer d'un `config.yaml` à l'interface sans rien perdre, conteneur **arrêté** :
 
@@ -124,16 +130,16 @@ Tout le reste est dans des fichiers à nous (`backend/src/stundtransfer/`, `fron
 | `backend/src/app.module.ts` | Branche le module `StundTransferModule` |
 | `backend/package.json` | Script `test:stundtransfer` |
 | `frontend/src/pages/upload/[reverseShareToken].tsx` | Affiche la page de dépôt pour les liens de dépôt |
-| `frontend/src/middleware.ts` | L'accueil des visiteurs affiche `/depot` ; pages du partage classique redirigées quand il est caché |
+| `frontend/src/middleware.ts` | L'accueil affiche `/depot` (visiteurs, et comptes connectés sans partage classique) ; pages du partage classique redirigées quand il est caché |
 | `frontend/src/components/header/Header.tsx` | Visiteurs : icône de connexion seule ; connecté sans partage classique : « Dépôts reçus » + profil |
 | `frontend/src/components/header/NavbarShareMenu.tsx` | Entrée « Dépôts reçus » |
 | `frontend/src/components/footer/Footer.tsx` | « Powered by » traduit |
 | `frontend/src/pages/account/reverseShares.tsx` | Bouton « Dépôts reçus » |
 | `frontend/src/i18n/locales.ts` | Ajoute les textes StundTransfer (fr + en) à toutes les langues, et simplifie quelques textes d'origine |
-| `backend/prisma/seed/config.seed.ts` | Section de réglages `stundtransfer` (ajoutée à la fin) |
+| `backend/prisma/seed/config.seed.ts` | Sections de réglages `stundtransfer` et `stundtransferpaths` (ajoutées à la fin) |
 | `frontend/src/services/config.service.ts` | Autorise la section `stundtransfer` |
 | `frontend/src/components/admin/configuration/ConfigurationNavBar.tsx` | Entrée « StundTransfer » dans les paramètres |
-| `frontend/src/pages/admin/index.tsx` | Carte « Dépôts reçus », « Paramètres » ouvre la section StundTransfer, carte « Gestion des partages » cachée sans partage classique |
+| `frontend/src/pages/admin/index.tsx` | Cartes « Dépôts reçus » et « Dossier de réception », « Paramètres » ouvre la section StundTransfer, carte « Gestion des partages » cachée sans partage classique |
 
 En cas de conflit lors d'une mise à jour : garder la version officielle du fichier, puis réappliquer ces quelques lignes.
 
