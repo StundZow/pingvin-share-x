@@ -26,6 +26,9 @@ const english: Record<string, string> = {
   "admin.config.stundtransfer.abandon-after.description":
     "An upload with no activity for this long is deleted from the \"in progress\" folder. Received files are never touched.",
   "stundtransfer.admin.card": "Received drops",
+  "admin.config.stundtransfer.classic-sharing": "Classic sharing",
+  "admin.config.stundtransfer.classic-sharing.description":
+    "Shows Pingvin's own sharing for signed-in users: upload page to send files to someone with a download link, \"My shares\" and \"Reverse shares\". Off: signed-in users only see the received drops and the administration.",
 
   "stundtransfer.form.title": "Send your files",
   "stundtransfer.form.subtitle":
@@ -162,6 +165,9 @@ const french: Record<string, string> = {
   "admin.config.stundtransfer.abandon-after.description":
     "Un envoi sans activité depuis ce délai est supprimé du dossier « en cours ». Les fichiers reçus ne sont jamais touchés.",
   "stundtransfer.admin.card": "Dépôts reçus",
+  "admin.config.stundtransfer.classic-sharing": "Partage classique",
+  "admin.config.stundtransfer.classic-sharing.description":
+    "Affiche le partage d'origine de Pingvin pour les comptes connectés : page « Téléverser » pour envoyer des fichiers à quelqu'un avec un lien de téléchargement, « Mes partages » et « Partages inversés ». Désactivé : une fois connecté, on ne voit que les dépôts reçus et l'administration.",
 
   "stundtransfer.form.title": "Envoie tes fichiers",
   "stundtransfer.form.subtitle":

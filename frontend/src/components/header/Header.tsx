@@ -25,6 +25,10 @@ import ActionAvatar from "./ActionAvatar";
 import NavbarShareMenu from "./NavbarShareMenu";
 // StundTransfer: visitors only get a small sign-in icon
 import GuestSignInButton from "../../stundtransfer/GuestSignInButton";
+import {
+  DEPOSITS_PAGE,
+  isClassicSharingEnabled,
+} from "../../stundtransfer/classicSharing";
 
 const HEADER_HEIGHT = 60;
 
@@ -156,7 +160,7 @@ const Header = () => {
     setMobileMenuView("root");
   }, [close, router.pathname]);
 
-  const authenticatedLinks: NavLink[] = [
+  let authenticatedLinks: NavLink[] = [ // StundTransfer: let (see below)
     {
       link: "/upload",
       label: t("navbar.upload"),
@@ -197,7 +201,7 @@ const Header = () => {
 
   unauthenticatedLinks = []; // StundTransfer: replaced by GuestSignInButton
 
-  const mobileRootLinks: NavLink[] = user
+  let mobileRootLinks: NavLink[] = user // StundTransfer: let (see below)
     ? [
         {
           link: "/upload",
@@ -211,6 +215,13 @@ const Header = () => {
         },
       ]
     : unauthenticatedLinks;
+
+  // StundTransfer: classic sharing hidden -> only the deposits and the profile menu
+  if (!isClassicSharingEnabled(config.get)) {
+    const depositsLink = { link: DEPOSITS_PAGE, label: t("stundtransfer.admin.title") };
+    authenticatedLinks = [depositsLink, { component: <ActionAvatar /> }];
+    if (user) mobileRootLinks = [depositsLink, { label: t("common.button.profile") }];
+  }
 
   const mobileShareLinks: NavLink[] = [
     {

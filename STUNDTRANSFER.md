@@ -4,7 +4,7 @@ Fork de [Pingvin Share X](https://github.com/smp46/pingvin-share-x) transformé 
 
 - Branche de travail : `stundtransfer` (partie de la version officielle **v1.22.3**)
 - Image Docker : `ghcr.io/stundzow/stundtransfer:latest`, construite par GitHub Actions à chaque envoi sur la branche `stundtransfer` (`.github/workflows/stundtransfer-image.yml`). Les tests tournent avant : si un test échoue, l'image n'est pas publiée.
-- Le partage « classique » de Pingvin (toi → quelqu'un) fonctionne comme avant.
+- Le partage « classique » de Pingvin (toi → quelqu'un) est caché par défaut ; il se réactive dans Paramètres → StundTransfer → Partage classique.
 
 ## Comment ça marche
 
@@ -32,6 +32,7 @@ Fork de [Pingvin Share X](https://github.com/smp46/pingvin-share-x) transformé 
 | Morceaux envoyés en même temps | 6 | Par navigateur (1 à 16) |
 | Espace à garder libre | 20 Go | Refuse un dépôt qui laisserait moins d'espace libre |
 | Supprimer les envois inachevés après | 3 jours | Nettoyage du dossier « en cours » |
+| Partage classique | désactivé | Affiche le partage d'origine de Pingvin (Téléverser, Mes partages, Partages inversés). Désactivé : ses pages renvoient vers « Dépôts reçus » (connecté) ou la page de dépôt (visiteur) |
 
 Le nom affiché en haut et le logo se changent dans **Paramètres → Général**.
 
@@ -123,8 +124,8 @@ Tout le reste est dans des fichiers à nous (`backend/src/stundtransfer/`, `fron
 | `backend/src/app.module.ts` | Branche le module `StundTransferModule` |
 | `backend/package.json` | Script `test:stundtransfer` |
 | `frontend/src/pages/upload/[reverseShareToken].tsx` | Affiche la page de dépôt pour les liens de dépôt |
-| `frontend/src/middleware.ts` | L'accueil des visiteurs affiche `/depot` |
-| `frontend/src/components/header/Header.tsx` | Visiteurs : icône de connexion seule ; entrée « Dépôts reçus » (mobile) |
+| `frontend/src/middleware.ts` | L'accueil des visiteurs affiche `/depot` ; pages du partage classique redirigées quand il est caché |
+| `frontend/src/components/header/Header.tsx` | Visiteurs : icône de connexion seule ; connecté sans partage classique : « Dépôts reçus » + profil |
 | `frontend/src/components/header/NavbarShareMenu.tsx` | Entrée « Dépôts reçus » |
 | `frontend/src/components/footer/Footer.tsx` | « Powered by » traduit |
 | `frontend/src/pages/account/reverseShares.tsx` | Bouton « Dépôts reçus » |
@@ -132,7 +133,7 @@ Tout le reste est dans des fichiers à nous (`backend/src/stundtransfer/`, `fron
 | `backend/prisma/seed/config.seed.ts` | Section de réglages `stundtransfer` (ajoutée à la fin) |
 | `frontend/src/services/config.service.ts` | Autorise la section `stundtransfer` |
 | `frontend/src/components/admin/configuration/ConfigurationNavBar.tsx` | Entrée « StundTransfer » dans les paramètres |
-| `frontend/src/pages/admin/index.tsx` | Carte « Dépôts reçus », « Paramètres » ouvre la section StundTransfer |
+| `frontend/src/pages/admin/index.tsx` | Carte « Dépôts reçus », « Paramètres » ouvre la section StundTransfer, carte « Gestion des partages » cachée sans partage classique |
 
 En cas de conflit lors d'une mise à jour : garder la version officielle du fichier, puis réappliquer ces quelques lignes.
 

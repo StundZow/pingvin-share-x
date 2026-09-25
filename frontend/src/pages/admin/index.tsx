@@ -15,6 +15,9 @@ import { FormattedMessage } from "react-intl";
 import Meta from "../../components/Meta";
 import useTranslate from "../../hooks/useTranslate.hook";
 import configService from "../../services/config.service";
+// StundTransfer
+import useConfig from "../../hooks/config.hook";
+import { isClassicSharingEnabled } from "../../stundtransfer/classicSharing";
 
 const useStyles = createStyles((theme) => ({
   item: {
@@ -34,6 +37,7 @@ const useStyles = createStyles((theme) => ({
 const Admin = () => {
   const { classes, theme } = useStyles();
   const t = useTranslate();
+  const config = useConfig(); // StundTransfer
 
   const [managementOptions, setManagementOptions] = useState([
     // StundTransfer: all received deposits
@@ -86,7 +90,14 @@ const Admin = () => {
       <Stack justify="space-between" style={{ height: "calc(100vh - 180px)" }}>
         <Paper withBorder p={40}>
           <Grid>
-            {managementOptions.map((item) => {
+            {managementOptions
+              // StundTransfer: no share management when classic sharing is hidden
+              .filter(
+                (item) =>
+                  item.route !== "/admin/shares" ||
+                  isClassicSharingEnabled(config.get),
+              )
+              .map((item) => {
               return (
                 <Col xs={6} key={item.route}>
                   <Paper

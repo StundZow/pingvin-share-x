@@ -521,6 +521,12 @@ export const configVariables = {
       type: "timespan",
       defaultValue: "3 days",
     },
+    // Pingvin's own sharing (upload page, "Mes partages", "Partages inversés")
+    classicSharing: {
+      type: "boolean",
+      defaultValue: "false",
+      secret: false,
+    },
   },
 } satisfies ConfigVariables;
 

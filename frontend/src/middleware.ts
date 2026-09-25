@@ -2,6 +2,12 @@ import { jwtDecode } from "jwt-decode";
 import { NextRequest, NextResponse } from "next/server";
 import configService from "./services/config.service";
 import { getDefaultConfig } from "./utils/defaultConfig.util";
+// StundTransfer
+import {
+  CLASSIC_SHARING_ROUTES,
+  DEPOSITS_PAGE,
+  isClassicSharingEnabled,
+} from "./stundtransfer/classicSharing";
 
 // This middleware redirects based on different conditions:
 // - Authentication state
@@ -73,6 +79,19 @@ export async function middleware(request: NextRequest) {
   // StundTransfer: visitors land directly on the deposit page (no sign-in page)
   if (!user && route == "/")
     return NextResponse.rewrite(new URL("/depot", request.url));
+
+  // StundTransfer: classic sharing hidden -> its pages lead to the deposits
+  // (received deposits when signed in, the deposit page for visitors)
+  if (
+    !isClassicSharingEnabled(getConfig) &&
+    new Routes(CLASSIC_SHARING_ROUTES).contains(route)
+  ) {
+    const response = NextResponse.redirect(
+      new URL(user ? DEPOSITS_PAGE : "/", request.url),
+    );
+    response.headers.set("Vary", "x-nextjs-data");
+    return response;
+  }
 
   if (!getConfig("share.allowRegistration")) {
     routes.disabled.routes.push("/auth/signUp");
