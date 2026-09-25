@@ -14,6 +14,7 @@ const categories = [
   "s3",
   "legal",
   "cache",
+  "stundtransfer", // StundTransfer
 ];
 
 const list = async (): Promise<Config[]> => {

@@ -61,14 +61,16 @@ export type AdminDeposit = {
   }[];
 };
 
-const getGuestLink = async (): Promise<{ token: string }> =>
-  (await api.get("stundtransfer/guest")).data;
+/** Public deposit of the home page (no link needed), if an admin enabled it. */
+const getPublicInfo = async (): Promise<LinkInfo> =>
+  (await api.get("stundtransfer/public")).data;
 
 const getLink = async (token: string): Promise<LinkInfo> =>
   (await api.get(`stundtransfer/links/${encodeURIComponent(token)}`)).data;
 
 const createDeposit = async (body: {
-  token: string;
+  // Deposit link token; undefined for the public deposit
+  token?: string;
   uploaderName: string;
   videoName: string;
   fileCount: number;
@@ -155,7 +157,7 @@ const removeDeposit = async (id: string) =>
   api.delete(`stundtransfer/admin/deposits/${id}`);
 
 export default {
-  getGuestLink,
+  getPublicInfo,
   getLink,
   createDeposit,
   addFiles,

@@ -15,6 +15,7 @@ import {
   TbAt,
   TbBinaryTree,
   TbBucket,
+  TbInbox, // StundTransfer
   TbMail,
   TbPalette,
   TbScale,
@@ -26,6 +27,7 @@ import {
 import { FormattedMessage } from "react-intl";
 
 export const categories = [
+  { name: "StundTransfer", icon: <TbInbox /> }, // StundTransfer
   { name: "General", icon: <TbSettings /> },
   { name: "Appearance", icon: <TbPalette /> },
   { name: "Email", icon: <TbMail /> },

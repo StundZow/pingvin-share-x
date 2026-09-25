@@ -52,10 +52,10 @@ function file(filePath, size) {
   return { path: filePath, data: randomBytes(size), lastModified: MTIME };
 }
 
-async function startDeposit(uploaderName, videoName, files, requestedChunkSize) {
+async function startDeposit(uploaderName, videoName, files, requestedChunkSize, token = TOKEN) {
   const created = await api("POST", "/stundtransfer/deposits", {
     body: {
-      token: TOKEN,
+      token,
       uploaderName,
       videoName,
       fileCount: files.length,
@@ -304,6 +304,28 @@ r = await api("DELETE", `/stundtransfer/deposits/${A.depositId}`, { secret: A.se
 assert.equal(r.status, 409);
 assert.equal(await exists(path.join(TRANSFER, "Litsu - Annulé")), false);
 ok("uploader can cancel: sent chunks deleted, nothing stored, a received deposit cannot be cancelled");
+
+// --- Public deposit (no link): depends on Admin > Configuration > StundTransfer
+r = await api("GET", "/stundtransfer/public");
+assert.equal(r.status, 200);
+if (r.json.depositMode) {
+  const filesP = [file("public.mov", 1_500_000)];
+  const P = await startDeposit("Public", "Sans lien", filesP, undefined, null);
+  await uploadJobs(P, chunkJobs(P));
+  r = await api("POST", `/stundtransfer/deposits/${P.depositId}/complete`, { secret: P.secret });
+  assert.equal(r.status, 202);
+  const target = path.join(TRANSFER, "Public - Sans lien", "public.mov");
+  await waitForFile(target);
+  assert.equal(sha(await readFile(target)), sha(filesP[0].data));
+  ok("public deposit works without any link (public deposit enabled)");
+} else {
+  r = await api("POST", "/stundtransfer/deposits", {
+    body: { uploaderName: "Public", videoName: "Fermé", fileCount: 1, totalSize: 1 },
+  });
+  assert.equal(r.status, 404);
+  assert.equal(r.json.error, "stund_public_disabled");
+  ok("deposit without link refused while the public deposit is disabled");
+}
 
 // --- Admin routes need a signed-in user
 r = await api("GET", "/stundtransfer/admin/deposits");

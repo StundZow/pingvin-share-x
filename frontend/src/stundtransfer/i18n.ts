@@ -6,6 +6,26 @@ const english: Record<string, string> = {
   "stundtransfer.guest.closed.title": "No drop open",
   "stundtransfer.guest.closed.description":
     "There is no open drop right now. If someone sent you a link, open it directly.",
+  "stundtransfer.error.stund_public_disabled":
+    "Drops are closed right now. Try again later or ask for a drop link.",
+
+  "admin.config.category.stundtransfer": "StundTransfer",
+  "admin.config.stundtransfer.public-deposit": "Public drop",
+  "admin.config.stundtransfer.public-deposit.description":
+    "Visitors of the home page can drop files directly, without an account or a link. Anyone who knows the address can then send files.",
+  "admin.config.stundtransfer.max-deposit-size": "Maximum size per drop",
+  "admin.config.stundtransfer.max-deposit-size.description":
+    "For the public drop. Drop links (reverse shares) keep their own limit.",
+  "admin.config.stundtransfer.parallel-uploads": "Parts sent at the same time",
+  "admin.config.stundtransfer.parallel-uploads.description":
+    "Parts of files each browser sends in parallel (1 to 16). 6 is the best value measured on a hard disk NAS.",
+  "admin.config.stundtransfer.min-free-space": "Space to keep free",
+  "admin.config.stundtransfer.min-free-space.description":
+    "A drop is refused if it would leave less free space than this on the NAS.",
+  "admin.config.stundtransfer.abandon-after": "Delete unfinished drops after",
+  "admin.config.stundtransfer.abandon-after.description":
+    "An upload with no activity for this long is deleted from the \"in progress\" folder. Received files are never touched.",
+  "stundtransfer.admin.card": "Received drops",
 
   "stundtransfer.form.title": "Send your files",
   "stundtransfer.form.subtitle":
@@ -122,6 +142,26 @@ const french: Record<string, string> = {
   "stundtransfer.guest.closed.title": "Aucun dépôt ouvert",
   "stundtransfer.guest.closed.description":
     "Il n'y a pas de dépôt ouvert pour le moment. Si on t'a envoyé un lien, ouvre-le directement.",
+  "stundtransfer.error.stund_public_disabled":
+    "Les dépôts sont fermés pour le moment. Réessaie plus tard ou demande un lien de dépôt.",
+
+  "admin.config.category.stundtransfer": "StundTransfer",
+  "admin.config.stundtransfer.public-deposit": "Dépôt public",
+  "admin.config.stundtransfer.public-deposit.description":
+    "Les visiteurs de la page d'accueil peuvent déposer directement, sans compte ni lien. Toute personne qui connaît l'adresse peut alors envoyer des fichiers.",
+  "admin.config.stundtransfer.max-deposit-size": "Taille maximale par dépôt",
+  "admin.config.stundtransfer.max-deposit-size.description":
+    "Pour le dépôt public. Les liens de dépôt (partages inversés) gardent leur propre limite.",
+  "admin.config.stundtransfer.parallel-uploads": "Morceaux envoyés en même temps",
+  "admin.config.stundtransfer.parallel-uploads.description":
+    "Nombre de morceaux que chaque navigateur envoie en parallèle (1 à 16). 6 est la meilleure valeur mesurée sur un NAS à disques durs.",
+  "admin.config.stundtransfer.min-free-space": "Espace à garder libre",
+  "admin.config.stundtransfer.min-free-space.description":
+    "Un dépôt est refusé s'il laissait moins d'espace libre que ça sur le NAS.",
+  "admin.config.stundtransfer.abandon-after": "Supprimer les envois inachevés après",
+  "admin.config.stundtransfer.abandon-after.description":
+    "Un envoi sans activité depuis ce délai est supprimé du dossier « en cours ». Les fichiers reçus ne sont jamais touchés.",
+  "stundtransfer.admin.card": "Dépôts reçus",
 
   "stundtransfer.form.title": "Envoie tes fichiers",
   "stundtransfer.form.subtitle":

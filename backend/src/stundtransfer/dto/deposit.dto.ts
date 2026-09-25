@@ -20,9 +20,11 @@ import {
 } from "../stundtransfer.config";
 
 export class CreateDepositDTO {
+  // Deposit link token; omitted for the public deposit of the home page
+  @IsOptional()
   @IsString()
   @Length(1, 200)
-  token: string;
+  token?: string;
 
   @IsString()
   @Length(1, 200)

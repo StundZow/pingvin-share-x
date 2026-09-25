@@ -13,6 +13,7 @@ import { Cron } from "@nestjs/schedule";
 import { StundDeposit, StundDepositFile, User } from "@prisma/client";
 import * as crypto from "crypto";
 import * as fs from "fs/promises";
+import * as moment from "moment";
 import * as path from "path";
 import { validate as isValidUUID } from "uuid";
 import { ConfigService } from "src/config/config.service";
@@ -33,11 +34,7 @@ import {
 } from "./paths";
 import { moveIntoFolder } from "./safeMove";
 import {
-  STUND_ABANDON_AFTER_HOURS,
   STUND_CHUNK_BYTES,
-  STUND_GUEST_ACCESS,
-  STUND_MIN_FREE_BYTES,
-  STUND_PARALLEL_UPLOADS,
   STUND_STAGING_DIR,
   STUND_TRANSFER_DIR,
   isStundTransferEnabled,
@@ -161,6 +158,20 @@ export class DepositService implements OnModuleInit {
     }
   }
 
+  // Settings from Admin > Configuration > StundTransfer (read on each use: no restart needed)
+  private publicDepositEnabled(): boolean {
+    return this.config.get("stundtransfer.publicDeposit");
+  }
+
+  private parallelUploads(): number {
+    return Math.min(16, Math.max(1, this.config.get("stundtransfer.parallelUploads") || 6));
+  }
+
+  private abandonAfterHours(): number {
+    const { value, unit } = this.config.get("stundtransfer.abandonAfter");
+    return Math.max(1, moment.duration(value, unit).asHours() || 72);
+  }
+
   private chunkSize(requested?: number): number {
     return requested || STUND_CHUNK_BYTES || this.config.get("share.chunkSize");
   }
@@ -257,36 +268,39 @@ export class DepositService implements OnModuleInit {
       depositMode: true,
       maxSize: parseInt(reverseShare.maxShareSize),
       chunkSize: this.chunkSize(),
-      parallelUploads: STUND_PARALLEL_UPLOADS,
+      parallelUploads: this.parallelUploads(),
     };
   }
 
-  /** Deposit link used by the "Continuer en invité" button. */
-  async getGuestLink() {
-    const link =
-      isStundTransferEnabled() && STUND_GUEST_ACCESS
-        ? await this.prisma.reverseShare.findFirst({
-            where: {
-              shareExpiration: { gt: new Date() },
-              remainingUses: { gt: 0 },
-              creator: { isAdmin: true },
-            },
-            orderBy: { createdAt: "desc" },
-            select: { token: true },
-          })
-        : null;
-    if (!link)
-      throw stundError(
-        HttpStatus.NOT_FOUND,
-        "stund_no_guest_link",
-        "No open deposit link",
-      );
-    return { token: link.token };
+  /** Public deposit on the home page (no link needed), if enabled by an admin. */
+  async getPublicInfo() {
+    if (!isStundTransferEnabled() || !this.publicDepositEnabled())
+      return { depositMode: false };
+    return {
+      depositMode: true,
+      maxSize: this.config.get("stundtransfer.maxDepositSize"),
+      chunkSize: this.chunkSize(),
+      parallelUploads: this.parallelUploads(),
+    };
   }
 
   async createDeposit(dto: CreateDepositDTO) {
     this.assertReady();
-    const reverseShare = await this.validLink(dto.token);
+    // With a deposit link: its limits apply. Without: the public deposit settings.
+    let reverseShare: Awaited<ReturnType<DepositService["validLink"]>> | null = null;
+    let maxSize: number;
+    if (dto.token) {
+      reverseShare = await this.validLink(dto.token);
+      maxSize = parseInt(reverseShare.maxShareSize);
+    } else if (this.publicDepositEnabled()) {
+      maxSize = this.config.get("stundtransfer.maxDepositSize");
+    } else {
+      throw stundError(
+        HttpStatus.NOT_FOUND,
+        "stund_public_disabled",
+        "Public deposit is disabled",
+      );
+    }
 
     let folderName: string;
     try {
@@ -299,17 +313,16 @@ export class DepositService implements OnModuleInit {
       );
     }
 
-    const maxSize = parseInt(reverseShare.maxShareSize);
     if (dto.totalSize > maxSize)
       throw stundError(
         HttpStatus.PAYLOAD_TOO_LARGE,
         "stund_too_large",
-        `The files exceed the maximum size of this link (${formatBytes(maxSize)})`,
+        `The files exceed the maximum size (${formatBytes(maxSize)})`,
         { maxSize },
       );
 
     const { bavail, bsize } = await fs.statfs(STUND_STAGING_DIR);
-    if (bavail * bsize - dto.totalSize < STUND_MIN_FREE_BYTES)
+    if (bavail * bsize - dto.totalSize < this.config.get("stundtransfer.minFreeSpace"))
       throw stundError(
         HttpStatus.INSUFFICIENT_STORAGE,
         "stund_not_enough_space",
@@ -326,8 +339,8 @@ export class DepositService implements OnModuleInit {
         totalSize: String(dto.totalSize),
         fileCount: dto.fileCount,
         chunkSize: this.chunkSize(dto.chunkSize),
-        reverseShareId: reverseShare.id,
-        reverseShareOwnerId: reverseShare.creatorId,
+        reverseShareId: reverseShare?.id ?? null,
+        reverseShareOwnerId: reverseShare?.creatorId ?? null,
       },
     });
     await this.chunks.prepareDeposit(deposit.id);
@@ -340,7 +353,7 @@ export class DepositService implements OnModuleInit {
       depositId: deposit.id,
       secret,
       chunkSize: deposit.chunkSize,
-      parallelUploads: STUND_PARALLEL_UPLOADS,
+      parallelUploads: this.parallelUploads(),
     };
   }
 
@@ -439,7 +452,7 @@ export class DepositService implements OnModuleInit {
       fileCount: deposit.fileCount,
       totalSize: Number(deposit.totalSize),
       chunkSize: deposit.chunkSize,
-      parallelUploads: STUND_PARALLEL_UPLOADS,
+      parallelUploads: this.parallelUploads(),
       files: await Promise.all(files.map((f) => this.fileState(deposit, f))),
     };
   }
@@ -774,7 +787,8 @@ export class DepositService implements OnModuleInit {
   @Cron("*/30 * * * *")
   async cleanupAbandonedDeposits() {
     if (!this.storageReady) return;
-    const cutoff = new Date(Date.now() - STUND_ABANDON_AFTER_HOURS * 3600 * 1000);
+    const abandonAfterHours = this.abandonAfterHours();
+    const cutoff = new Date(Date.now() - abandonAfterHours * 3600 * 1000);
 
     const stale = await this.prisma.stundDeposit.findMany({
       where: { status: "UPLOADING", lastActivityAt: { lt: cutoff } },
@@ -786,7 +800,7 @@ export class DepositService implements OnModuleInit {
         where: { id },
         data: {
           status: "ABANDONED",
-          error: `No activity for ${STUND_ABANDON_AFTER_HOURS} hours`,
+          error: `No activity for ${Math.round(abandonAfterHours)} hours`,
         },
       });
       this.lastActivityWrite.delete(id);

@@ -1,4 +1,6 @@
-// StundTransfer: settings read from environment variables (docker compose).
+// StundTransfer: settings that depend on the Docker volumes, read from environment
+// variables (docker compose). Everything else is set in Admin > Configuration >
+// StundTransfer (see the "stundtransfer" category in prisma/seed/config.seed.ts).
 import * as path from "path";
 
 function intFromEnv(name: string, fallback: number, min: number, max: number) {
@@ -23,37 +25,7 @@ export const STUND_STAGING_DIR = process.env.STUNDTRANSFER_STAGING_DIR
     ? path.join(path.dirname(STUND_TRANSFER_DIR), "en-cours")
     : "";
 
-/** Chunks sent at the same time by each uploader's browser. */
-export const STUND_PARALLEL_UPLOADS = intFromEnv(
-  "STUNDTRANSFER_PARALLEL_UPLOADS",
-  4,
-  1,
-  16,
-);
-
-/** A deposit is refused if it would leave less free space than this. */
-export const STUND_MIN_FREE_BYTES =
-  intFromEnv("STUNDTRANSFER_MIN_FREE_GB", 20, 0, 1_000_000) * 1_000_000_000;
-
-/** Unfinished deposits are deleted after this many hours without activity. */
-export const STUND_ABANDON_AFTER_HOURS = intFromEnv(
-  "STUNDTRANSFER_ABANDON_AFTER_HOURS",
-  72,
-  1,
-  24 * 365,
-);
-
-/**
- * "Continuer en invité" on the home page: opens the most recent valid deposit
- * link, without knowing it. Anyone who finds the site can then drop files.
- */
-export const STUND_GUEST_ACCESS =
-  process.env.STUNDTRANSFER_GUEST_ACCESS === "true";
-
-/**
- * Size of the chunks sent by browsers, in MB. 0 = use Pingvin's share.chunkSize.
- * Chunks are streamed to disk, so large chunks do not use more memory.
- */
+/** Size of the chunks sent by browsers, in MB. 0 = use Pingvin's share.chunkSize. */
 export const STUND_CHUNK_BYTES =
   intFromEnv("STUNDTRANSFER_CHUNK_MB", 0, 1, 256) * 1_000_000;
 export const STUND_MIN_CHUNK_BYTES = 1_000_000;

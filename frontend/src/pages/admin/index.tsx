@@ -10,7 +10,7 @@ import {
 } from "@mantine/core";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { TbLink, TbRefresh, TbSettings, TbUsers } from "react-icons/tb";
+import { TbInbox, TbLink, TbRefresh, TbSettings, TbUsers } from "react-icons/tb"; // StundTransfer: TbInbox
 import { FormattedMessage } from "react-intl";
 import Meta from "../../components/Meta";
 import useTranslate from "../../hooks/useTranslate.hook";
@@ -36,6 +36,12 @@ const Admin = () => {
   const t = useTranslate();
 
   const [managementOptions, setManagementOptions] = useState([
+    // StundTransfer: all received deposits
+    {
+      title: t("stundtransfer.admin.card"),
+      icon: TbInbox,
+      route: "/account/deposits",
+    },
     {
       title: t("admin.button.users"),
       icon: TbUsers,
@@ -49,7 +55,7 @@ const Admin = () => {
     {
       title: t("admin.button.config"),
       icon: TbSettings,
-      route: "/admin/config/general",
+      route: "/admin/config/stundtransfer", // StundTransfer: was /admin/config/general
     },
   ]);
 

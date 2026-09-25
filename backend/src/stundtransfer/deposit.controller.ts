@@ -42,10 +42,10 @@ export class SignedInGuard extends JwtGuard {
 export class DepositController {
   constructor(private depositService: DepositService) {}
 
-  @Get("guest")
+  @Get("public")
   @Throttle({ default: { limit: 30, ttl: 60 * 1000 } })
-  getGuestLink() {
-    return this.depositService.getGuestLink();
+  getPublicInfo() {
+    return this.depositService.getPublicInfo();
   }
 
   @Get("links/:token")

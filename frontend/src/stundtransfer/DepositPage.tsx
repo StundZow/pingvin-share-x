@@ -85,7 +85,9 @@ async function withNetworkRetry<T>(call: () => Promise<T>): Promise<T> {
   }
 }
 
-const DepositPage = ({ token, info }: { token: string; info: LinkInfo }) => {
+// token: deposit link; undefined for the public deposit of the home page
+const DepositPage = ({ token, info }: { token?: string; info: LinkInfo }) => {
+  const memoryKey = token ?? "public";
   const t = useTranslate();
   const intl = useIntl();
   const humanSize = (bytes: number) => formatSize(bytes, intl.locale);
@@ -145,12 +147,12 @@ const DepositPage = ({ token, info }: { token: string; info: LinkInfo }) => {
   // An upload interrupted by a reload or a closed tab can be resumed
   const checkInterruptedUpload = async () => {
     setPhase({ name: "checking" });
-    const saved = resumeMemory.load(token);
+    const saved = resumeMemory.load(memoryKey);
     if (!saved) return setPhase({ name: "form" });
     try {
       const state = await stundTransferService.getDeposit(saved);
       if (state.status !== "UPLOADING") {
-        resumeMemory.clear(token);
+        resumeMemory.clear(memoryKey);
         return setPhase({ name: "form" });
       }
       setUploaderName(state.uploaderName);
@@ -166,7 +168,7 @@ const DepositPage = ({ token, info }: { token: string; info: LinkInfo }) => {
         },
       });
     } catch (e) {
-      if (toFatalError(e)) resumeMemory.clear(token);
+      if (toFatalError(e)) resumeMemory.clear(memoryKey);
       setPhase({ name: "form" });
     }
   };
@@ -251,7 +253,7 @@ const DepositPage = ({ token, info }: { token: string; info: LinkInfo }) => {
         setPhase({ name: "uploading" });
       }
     }
-    resumeMemory.clear(token);
+    resumeMemory.clear(memoryKey);
     setPhase({ name: "done", paths, totalSize });
   };
 
@@ -269,7 +271,7 @@ const DepositPage = ({ token, info }: { token: string; info: LinkInfo }) => {
           totalSize: selectedSize,
         }),
       );
-      resumeMemory.save(token, {
+      resumeMemory.save(memoryKey, {
         depositId: session.depositId,
         secret: session.secret,
         savedAt: Date.now(),
@@ -330,7 +332,7 @@ const DepositPage = ({ token, info }: { token: string; info: LinkInfo }) => {
         const session = currentSession.current;
         if (session)
           await stundTransferService.cancelDeposit(session).catch(() => undefined);
-        resumeMemory.clear(token);
+        resumeMemory.clear(memoryKey);
         setProgress(undefined);
         setPhase({ name: "form" });
         toast.success(t("stundtransfer.upload.cancelled"));
@@ -341,7 +343,7 @@ const DepositPage = ({ token, info }: { token: string; info: LinkInfo }) => {
     // Giving up an interrupted upload: delete what was already sent
     if (phase.name === "resume")
       stundTransferService.cancelDeposit(phase.session).catch(() => undefined);
-    resumeMemory.clear(token);
+    resumeMemory.clear(memoryKey);
     setSelected([]);
     setIgnored(0);
     setProgress(undefined);

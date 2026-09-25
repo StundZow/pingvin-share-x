@@ -499,6 +499,29 @@ export const configVariables = {
       secret: false,
     },
   },
+  // StundTransfer: deposit settings (Admin > Configuration > StundTransfer)
+  stundtransfer: {
+    publicDeposit: {
+      type: "boolean",
+      defaultValue: "false",
+    },
+    maxDepositSize: {
+      type: "filesize",
+      defaultValue: "500000000000",
+    },
+    parallelUploads: {
+      type: "number",
+      defaultValue: "6",
+    },
+    minFreeSpace: {
+      type: "filesize",
+      defaultValue: "20000000000",
+    },
+    abandonAfter: {
+      type: "timespan",
+      defaultValue: "3 days",
+    },
+  },
 } satisfies ConfigVariables;
 
 export type YamlConfig = {

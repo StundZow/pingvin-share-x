@@ -1,5 +1,5 @@
 // StundTransfer: home page for visitors (the middleware shows it on "/").
-// Opens the current deposit link directly: no account, no sign-in page.
+// Public deposit (Admin > Configuration > StundTransfer): no account, no link.
 import { Alert, LoadingOverlay } from "@mantine/core";
 import { useEffect, useState } from "react";
 import { TbInfoCircle } from "react-icons/tb";
@@ -11,19 +11,18 @@ import stundTransferService, { LinkInfo } from "../stundtransfer/stundtransfer.s
 
 const Depot = () => {
   const t = useTranslate();
-  // undefined: loading, null: no open deposit link
-  const [link, setLink] = useState<{ token: string; info: LinkInfo } | null>();
+  // undefined: loading, null: public deposit closed
+  const [info, setInfo] = useState<LinkInfo | null>();
 
   useEffect(() => {
-    (async () => {
-      const { token } = await stundTransferService.getGuestLink();
-      const info = await stundTransferService.getLink(token);
-      setLink(info.depositMode ? { token, info } : null);
-    })().catch(() => setLink(null));
+    stundTransferService
+      .getPublicInfo()
+      .then((publicInfo) => setInfo(publicInfo.depositMode ? publicInfo : null))
+      .catch(() => setInfo(null));
   }, []);
 
-  if (link === undefined) return <LoadingOverlay visible />;
-  if (link) return <DepositPage token={link.token} info={link.info} />;
+  if (info === undefined) return <LoadingOverlay visible />;
+  if (info) return <DepositPage info={info} />;
   return (
     <>
       <Meta title={t("stundtransfer.page.title")} />
